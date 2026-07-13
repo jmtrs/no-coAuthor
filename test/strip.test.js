@@ -190,6 +190,16 @@ test('preserves a Googler with a non-bot @google.com email', function () {
   assert.equal(r.removed, 0)
 })
 
+test('strips a bot trailer with trailing whitespace (--cleanup=verbatim)', function () {
+  // Regression: the regex used to anchor `>$`, so a trailer committed with
+  // --cleanup=verbatim (which keeps trailing spaces git's default strip would
+  // remove) escaped stripping. Now tolerates trailing whitespace via `>\s*$`.
+  var r = stripCount('fix: x\n\nCo-Authored-By: Claude <noreply@anthropic.com>   \n')
+  assert.equal(r.removed, 1)
+  var r2 = stripCount('fix: x\n\nCo-Authored-By: Claude <noreply@anthropic.com>\t\n')
+  assert.equal(r2.removed, 1)
+})
+
 test('does not hang on an adversarial long line (ReDoS-lite guard)', function () {
   // Regression test for a real O(n^2) backtracking blowup: a line shaped
   // like "Co-Authored-By: " + many repeats of an AI name + " <notreal>" made

@@ -190,9 +190,9 @@ there and actually stripping trailers — see [CLI reference](#cli-reference).
 
 ## Configuration
 
-Optional `.no-coauthorrc.json` (repo root and/or `~`) adds custom patterns on
-top of the built-ins. Entries are treated as **literal strings** and escaped
-automatically, so no regex knowledge is required:
+Optional `.no-coauthorrc.json` adds custom patterns on top of the built-ins.
+Entries are treated as **literal strings** and escaped automatically, so no
+regex knowledge is required:
 
 ```json
 {
@@ -202,9 +202,22 @@ automatically, so no regex knowledge is required:
 }
 ```
 
-The Node.js hook reads this at runtime (both repo-root and home-directory
-files, merged). The POSIX fallback does not — it is fully self-contained by
-design, with no filesystem reads beyond the commit message itself.
+The Node.js hook and the `check` command read this at runtime. There are two
+locations, with **different trust levels**:
+
+- **`~/.no-coauthorrc.json`** — your own machine, always honored.
+- **`./.no-coauthorrc.json`** (repo root) — **ignored by default**. A cloned
+  repo could ship a config that silently strips real human co-author
+  attribution, which is exactly what this tool exists to prevent. To honor a
+  repo-root config you control (e.g. a team-shared one in CI), opt in with:
+
+```bash
+export NO_COAUTHOR_TRUST_REPO=1
+```
+
+The POSIX fallback hook does not read either file — it is fully
+self-contained by design, with no filesystem reads beyond the commit message
+itself.
 
 ## Temporarily disabling
 

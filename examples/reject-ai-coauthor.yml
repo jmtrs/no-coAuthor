@@ -40,17 +40,27 @@ jobs:
           node-version: 20
 
       - name: Check commits for AI co-author trailers
+        # Pass GitHub context through env vars rather than inline ${{ }}
+        # interpolation: GitHub sets env as literal strings with no shell
+        # evaluation, which is injection-proof by construction even if these
+        # values ever held attacker-controlled text (today they're SHAs and an
+        # event name, but this keeps the example safe if it gets adapted).
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            RANGE="$PR_BASE..$PR_HEAD"
           else
-            # Direct push: github.event.before is all-zeros for a new branch's
-            # first push, which isn't a valid revision — fall back to just the
-            # tip commit in that case.
-            if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
-              RANGE="${{ github.event.after }}~1..${{ github.event.after }}"
+            # Direct push: BEFORE is all-zeros for a new branch's first push,
+            # which isn't a valid revision — fall back to just the tip commit.
+            if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              RANGE="$AFTER~1..$AFTER"
             else
-              RANGE="${{ github.event.before }}..${{ github.event.after }}"
+              RANGE="$BEFORE..$AFTER"
             fi
           fi
           npx --yes @aggc/no-coauthor check "$RANGE"
