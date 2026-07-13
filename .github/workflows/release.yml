@@ -24,6 +24,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - name: Create Release Pull Request or Publish
+        id: changesets
         uses: changesets/action@v1
         with:
           publish: npm run release
@@ -31,3 +32,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
+
+      - name: Update Homebrew formula
+        # Only when this run actually published (as opposed to just opening/
+        # updating the "Version Packages" PR). changesets/action already
+        # created the vX.Y.Z tag + GitHub release by this point.
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -eu
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          URL="https://github.com/jmtrs/no-coAuthor/archive/refs/tags/$TAG.tar.gz"
+
+          # The tag was just created by the previous step; GitHub's tarball
+          # endpoint can lag a few seconds behind, so retry briefly.
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsSL -o /tmp/tap-src.tar.gz "$URL"; then break; fi
+            sleep 3
+          done
+          SHA256=$(sha256sum /tmp/tap-src.tar.gz | cut -d' ' -f1)
+
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/jmtrs/homebrew-tap.git" /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+          sed -i -E "s#^  url \".*\"#  url \"$URL\"#" Formula/no-coauthor.rb
+          sed -i -E "s#^  sha256 \".*\"#  sha256 \"$SHA256\"#" Formula/no-coauthor.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/no-coauthor.rb
+          if ! git diff --cached --quiet; then
+            git commit -m "no-coauthor $TAG"
+            git push
+          fi

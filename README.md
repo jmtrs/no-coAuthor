@@ -184,6 +184,18 @@ curl -fsSL https://raw.githubusercontent.com/jmtrs/no-coAuthor/main/install.sh |
 npx @aggc/no-coauthor install --no-node
 ```
 
+### Homebrew (no Node.js required)
+
+```bash
+brew install jmtrs/tap/no-coauthor
+no-coauthor install          # per-project
+no-coauthor install --global # every repo on this machine
+```
+
+Same POSIX shell hook as the curl installer above — [jmtrs/homebrew-tap](https://github.com/jmtrs/homebrew-tap)
+just packages `install.sh` under the `no-coauthor` command name. The formula
+is updated automatically on every release (see `.github/workflows/release.yml`).
+
 ### pre-commit framework
 
 Already using [pre-commit](https://pre-commit.com)? Add this repo to your
@@ -193,7 +205,7 @@ the `commit-msg` hook file for you:
 ```yaml
 repos:
   - repo: https://github.com/jmtrs/no-coAuthor
-    rev: v2.3.0 # use the latest tag: https://github.com/jmtrs/no-coAuthor/tags
+    rev: v2.4.0 # use the latest tag: https://github.com/jmtrs/no-coAuthor/tags
     hooks:
       - id: no-coauthor
 ```
