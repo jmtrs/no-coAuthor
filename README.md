@@ -184,6 +184,34 @@ curl -fsSL https://raw.githubusercontent.com/jmtrs/no-coAuthor/main/install.sh |
 npx @aggc/no-coauthor install --no-node
 ```
 
+### pre-commit framework
+
+Already using [pre-commit](https://pre-commit.com)? Add this repo to your
+`.pre-commit-config.yaml` instead of running `install` — pre-commit manages
+the `commit-msg` hook file for you:
+
+```yaml
+repos:
+  - repo: https://github.com/jmtrs/no-coAuthor
+    rev: v2.3.0 # use the latest tag: https://github.com/jmtrs/no-coAuthor/tags
+    hooks:
+      - id: no-coauthor
+```
+
+Then:
+
+```bash
+pre-commit install --hook-type commit-msg
+```
+
+This runs `no-coauthor commit-msg <file>` under pre-commit's own Node
+environment instead of through `no-coauthor install`, so it does **not** get
+the wrapper/preserve-foreign-hook handling `lib/install.js` does for a direct
+install — pre-commit is already managing the hook file and any other
+`commit-msg` hooks you've configured through it. Everything else (which
+trailers/banners get stripped, `.no-coauthorrc.json`, `NO_COAUTHOR_DISABLE`)
+behaves the same either way.
+
 ## Uninstall
 
 ```bash
@@ -316,6 +344,9 @@ Commands
   status --global     Check the global hook instead of the local one
   check [range]       Scan already-made commits for AI trailers (default: HEAD~1..HEAD)
                       For CI use — see [Server-side enforcement](#server-side-enforcement)
+  commit-msg <file>   Strip trailers/banners from a commit message file in place.
+                      Internal: invoked by pre-commit, not meant to be run by hand
+                      — see [pre-commit framework](#install)
 
 Options
   --no-node           Use POSIX shell hook instead of Node.js
@@ -353,6 +384,9 @@ lib/status.js            Checks the hook is installed, managed, executable, and
                          actually strips a synthetic AI trailer right now
 lib/check.js             Server-side companion: scans a git revision range of
                          already-made commits for AI trailers (reuses strip.js)
+lib/commit-msg.js        Runtime commit-msg entry point for `no-coauthor commit-msg
+                         <file>` — what .pre-commit-hooks.yaml shells out to
+                         (reuses strip.js, unlike the generated hooks below)
 lib/hook.js              Builds the self-contained Node.js commit-msg hook that gets
                          written to disk (inlines strip.js + patterns.js — no
                          runtime dependency on this package once installed)
@@ -369,6 +403,8 @@ scripts/sync-install-sh.js  Regenerates that embedded copy after a
                          lib/patterns.js change (`npm run sync-install-sh`)
 examples/reject-ai-coauthor.yml  Copy-paste GitHub Actions workflow wired to
                          `no-coauthor check` — see Server-side enforcement above
+.pre-commit-hooks.yaml   Exposes this repo as a pre-commit `commit-msg`-stage
+                         hook — see pre-commit framework under Install above
 ```
 
 Both hook implementations are generated from `lib/patterns.js`, so a tool

@@ -48,3 +48,23 @@ jobs:
           (cd "$RT" && git commit -q --allow-empty -m "feat: e2e" -m "Co-Authored-By: Oz <oz-agent@warp.dev>" -m "Co-Authored-By: Jane Doe <jane@example.com>")
           git -C "$RT" log -1 --format=%B | grep -q "jane@example.com"
           ! git -C "$RT" log -1 --format=%B | grep -q "oz-agent@warp.dev"
+
+  pre-commit:
+    # Verify the .pre-commit-hooks.yaml commit-msg hook works via the
+    # pre-commit framework itself, not just our own installer.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install pre-commit
+      - run: |
+          MSGFILE=$(mktemp)
+          printf 'feat: e2e\n\nCo-Authored-By: Oz <oz-agent@warp.dev>\nCo-Authored-By: Jane Doe <jane@example.com>\n' > "$MSGFILE"
+          pre-commit try-repo "$GITHUB_WORKSPACE" no-coauthor --hook-stage commit-msg --commit-msg-filename "$MSGFILE" --verbose
+          grep -q "jane@example.com" "$MSGFILE"
+          ! grep -q "oz-agent@warp.dev" "$MSGFILE"

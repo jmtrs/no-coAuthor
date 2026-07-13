@@ -82,6 +82,8 @@ if (command === 'install') {
   require('../lib/status.js')(isGlobal)
 } else if (command === 'check') {
   require('../lib/check.js')(args[1])
+} else if (command === 'commit-msg') {
+  require('../lib/commit-msg.js')(args[1])
 } else {
   ui.err('unknown command "' + command + '". Run --help for usage.')
   process.exit(1)
