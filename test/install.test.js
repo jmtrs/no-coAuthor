@@ -196,6 +196,13 @@ test('install/uninstall work from a submodule, using its own real gitdir under .
   execFileSync('git', ['commit', '-q', '-m', 'chore: add submodule'], { cwd: parentDir })
   var submodulePath = path.join(parentDir, 'sub')
 
+  // `git submodule add` clones subDir into submodulePath as an independent
+  // checkout — cloning does NOT carry over local repo config, so
+  // submodulePath needs its own user.email/user.name for the commit below,
+  // same as mkRepo() sets for every other test repo in this file.
+  execFileSync('git', ['config', 'user.email', 't@t.t'], { cwd: submodulePath })
+  execFileSync('git', ['config', 'user.name', 't'], { cwd: submodulePath })
+
   assert.match(fs.readFileSync(path.join(submodulePath, '.git'), 'utf8'), /^gitdir: /, 'expected .git to be a file, not a directory, inside a submodule')
 
   withCwd(submodulePath, function () {
