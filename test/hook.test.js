@@ -116,7 +116,7 @@ test('generated hook honors HOME .no-coauthorrc.json WITHOUT the trust flag', fu
     fs.chmodSync(hookFile, 0o755)
     fs.writeFileSync(msgFile, 'fix: x\n\nCo-Authored-By: MyAgent <bot@mycorp.ai>\n')
     execFileSync('node', [hookFile, msgFile], {
-      env: Object.assign({}, process.env, { HOME: homeDir }),
+      env: Object.assign({}, process.env, { HOME: homeDir, USERPROFILE: homeDir }),
       cwd: workDir
     })
     var out = fs.readFileSync(msgFile, 'utf8')

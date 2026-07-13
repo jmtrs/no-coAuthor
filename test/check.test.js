@@ -150,7 +150,7 @@ test('check: honors HOME .no-coauthorrc.json WITHOUT the trust flag', function (
   var dir = mkRepo()
   commit(dir, 'chore: base')
   commit(dir, 'feat: with custom bot trailer', 'Co-Authored-By: MyAgent <bot@mycorp.ai>')
-  var r = runCheckCli(dir, 'HEAD~1..HEAD', { HOME: homeDir })
+  var r = runCheckCli(dir, 'HEAD~1..HEAD', { HOME: homeDir, USERPROFILE: homeDir })
   assert.equal(r.code, 1, 'homedir config must be honored without the trust flag')
   assert.match(r.out, /bot@mycorp\.ai/)
 })
