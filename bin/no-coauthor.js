@@ -21,6 +21,8 @@ if (args.includes('--help') || args.includes('-h') || args.length === 0) {
   print('    install --no-node   Install POSIX shell hook (no Node.js needed)')
   print('    uninstall           Remove hook from current repo')
   print('    uninstall --global  Remove global git hook')
+  print('    status              Check the hook is installed and actually stripping trailers')
+  print('    status --global     Check the global hook instead of the local one')
   print('')
   print('  Options')
   print('    --no-node           Use POSIX shell hook instead of Node.js')
@@ -53,6 +55,8 @@ if (command === 'install') {
   require('../lib/install.js')(isGlobal, noNode)
 } else if (command === 'uninstall') {
   require('../lib/uninstall.js')(isGlobal)
+} else if (command === 'status') {
+  require('../lib/status.js')(isGlobal)
 } else {
   process.stderr.write('no-coauthor: unknown command "' + command + '". Run --help for usage.\n')
   process.exit(1)

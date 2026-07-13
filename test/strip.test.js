@@ -189,3 +189,25 @@ test('preserves a Googler with a non-bot @google.com email', function () {
   var r = stripCount('fix: x\n\nCo-Authored-By: Pat <pat@google.com>\n')
   assert.equal(r.removed, 0)
 })
+
+test('does not hang on an adversarial long line (ReDoS-lite guard)', function () {
+  // Regression test for a real O(n^2) backtracking blowup: a line shaped
+  // like "Co-Authored-By: " + many repeats of an AI name + " <notreal>" made
+  // the combined name-alternation regex take ~4s at 160KB and scaled
+  // quadratically (measured: 24KB/88ms, 64KB/623ms, 160KB/3915ms — ratios
+  // matched size^2). At 1MB this reaches multi-minute territory, hanging any
+  // `git commit`. The fix skips matching on lines over
+  // MAX_TRAILER_LINE_LENGTH (500 chars); this test asserts that guard keeps
+  // holding, not the exact threshold value.
+  var evil = 'Co-Authored-By: ' + 'Claude a'.repeat(20000) + ' <notreal>'
+  var msg = 'fix: x\n\n' + evil + '\nCo-Authored-By: Jane Doe <jane@example.com>\n'
+  var t0 = Date.now()
+  var out = stripMessage(msg)
+  var elapsed = Date.now() - t0
+  assert.ok(elapsed < 200, 'stripMessage took ' + elapsed + 'ms on a 160KB adversarial line — quadratic blowup regression?')
+  // Over-length line is left untouched (never matched a real trailer shape
+  // anyway — it has no valid bot email), and the real human trailer after it
+  // is unaffected.
+  assert.match(out, /Claude a/)
+  assert.match(out, /jane@example\.com/)
+})

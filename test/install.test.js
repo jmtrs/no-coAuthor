@@ -123,6 +123,76 @@ test('end-to-end real git commit strips AI trailer and keeps human', function ()
   })
 })
 
+// The wrap-a-foreign-hook path (lib/install.js installAt's "wrapped" branch)
+// is the tool's core "non-destructive" promise: an existing commit-msg hook
+// must keep working exactly as before, with no-coauthor layered on top. The
+// unit test above this only asserts file contents after install/uninstall —
+// it never actually runs the wrapper. These two tests drive a real `git
+// commit` through the wrapper so both halves of that promise are proven,
+// not just assumed from the file layout.
+test('foreign hook wrapper: the preserved hook actually runs and can still block a commit', function () {
+  var dir = mkRepo()
+  var hooks = path.join(dir, '.git', 'hooks')
+  var ranMarker = path.join(dir, 'foreign-hook-ran')
+  // A synthetic pre-existing hook that proves it ran (writes a marker file)
+  // and rejects any message containing the word REJECT — standing in for a
+  // real-world commit-msg linter.
+  var foreign =
+    '#!/bin/sh\n' +
+    'touch ' + JSON.stringify(ranMarker) + '\n' +
+    'grep -q REJECT "$1" && exit 1\n' +
+    'exit 0\n'
+  fs.writeFileSync(path.join(hooks, 'commit-msg'), foreign, { mode: 0o755 })
+  withCwd(dir, function () {
+    install(false, false)
+  })
+
+  fs.writeFileSync(path.join(dir, 'f.txt'), 'x')
+  execFileSync('git', ['add', 'f.txt'], { cwd: dir })
+
+  assert.throws(function () {
+    execFileSync(
+      'git',
+      ['commit', '-q', '--allow-empty', '-m', 'feat: REJECT me', '-m', 'Co-Authored-By: Oz <oz-agent@warp.dev>'],
+      { cwd: dir, stdio: 'pipe' }
+    )
+  }, 'the preserved foreign hook should have rejected this commit (exit 1), blocking it')
+  assert.ok(fs.existsSync(ranMarker), 'the preserved foreign hook did not run at all')
+  assert.throws(function () {
+    execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: dir, stdio: 'pipe' })
+  }, 'a commit was created despite the foreign hook rejecting it')
+
+  withCwd(dir, function () {
+    uninstall(false)
+  })
+})
+
+test('foreign hook wrapper: when the preserved hook allows the commit, no-coauthor still strips on top', function () {
+  var dir = mkRepo()
+  var hooks = path.join(dir, '.git', 'hooks')
+  var ranMarker = path.join(dir, 'foreign-hook-ran')
+  var foreign = '#!/bin/sh\ntouch ' + JSON.stringify(ranMarker) + '\nexit 0\n'
+  fs.writeFileSync(path.join(hooks, 'commit-msg'), foreign, { mode: 0o755 })
+  withCwd(dir, function () {
+    install(false, false)
+  })
+
+  execFileSync(
+    'git',
+    ['commit', '-q', '--allow-empty', '-m', 'feat: wrapped', '-m', 'Co-Authored-By: Oz <oz-agent@warp.dev>', '-m', 'Co-Authored-By: Jane Doe <jane@example.com>'],
+    { cwd: dir }
+  )
+
+  assert.ok(fs.existsSync(ranMarker), 'the preserved foreign hook did not run')
+  var body = execFileSync('git', ['log', '-1', '--format=%B'], { cwd: dir, encoding: 'utf8' })
+  assert.doesNotMatch(body, /oz-agent@warp\.dev/, 'no-coauthor did not strip the AI trailer on top of the wrapped foreign hook')
+  assert.match(body, /jane@example\.com/, 'the human co-author was dropped')
+
+  withCwd(dir, function () {
+    uninstall(false)
+  })
+})
+
 test('install.sh embedded POSIX hook stays in sync with lib/hook-posix.js', function () {
   // Normalize CRLF so this test is robust even if a checkout (e.g. Windows
   // without .gitattributes honored) converts line endings on install.sh.

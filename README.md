@@ -198,11 +198,30 @@ Commands
   install --no-node   Install POSIX shell hook (no Node.js needed)
   uninstall           Remove hook from current repo
   uninstall --global  Remove global git hook
+  status              Check the hook is installed and actually stripping trailers
+  status --global     Check the global hook instead of the local one
 
 Options
   --no-node           Use POSIX shell hook instead of Node.js
   -h, --help          Show help
   -v, --version       Show version
+```
+
+`status` exists because this tool's whole job is to run invisibly on every
+commit — if something else later overwrites `.git/hooks/commit-msg` (a hook
+manager like husky/lefthook reinstalling, a manual edit, a fresh `git init`
+template), no-coauthor silently stops working with **zero visible signal**,
+which is exactly the failure mode it exists to prevent. `status` checks the
+hook file is present, is ours, is executable, and then actually **runs it**
+against a synthetic AI trailer to confirm it still strips correctly — not
+just that a plausible-looking file exists:
+
+```bash
+$ npx @aggc/no-coauthor status
+no-coauthor: checking local hook at /path/to/repo/.git/hooks
+✔ commit-msg hook is installed and managed by no-coauthor
+✔ /path/to/repo/.git/hooks/commit-msg is executable
+✔ live check: a synthetic AI trailer was stripped and a human trailer was kept
 ```
 
 ## Architecture
@@ -211,6 +230,8 @@ Options
 bin/no-coauthor.js       CLI entry point (install / uninstall / --help / --version)
 lib/install.js           Non-destructive install: standalone, wrap, or update-in-place
 lib/uninstall.js         Restores a preserved foreign hook, or removes ours cleanly
+lib/status.js            Checks the hook is installed, managed, executable, and
+                         actually strips a synthetic AI trailer right now
 lib/hook.js              Builds the self-contained Node.js commit-msg hook that gets
                          written to disk (inlines strip.js + patterns.js — no
                          runtime dependency on this package once installed)
@@ -247,6 +268,10 @@ installs the POSIX hook with real `sh`/`grep`/`awk` and performs an actual
 
 ## Limitations
 
+- Lines longer than 500 chars are never treated as a `Co-Authored-By`
+  trailer and are left untouched (no real one gets remotely close — this
+  bound exists to keep the Node hook's regex matching from doing
+  quadratic-time work on an adversarial or buggy-tool-generated giant line).
 - The POSIX fallback is best-effort: it compiles all patterns into one
   combined ERE and does not read the config file. Prefer the Node hook when
   possible; use `--no-node` only when Node.js is unavailable.
