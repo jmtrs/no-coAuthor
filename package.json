@@ -26,6 +26,7 @@
   "scripts": {
     "test": "node --test",
     "prepublishOnly": "npm test",
+    "sync-install-sh": "node scripts/sync-install-sh.js",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish"

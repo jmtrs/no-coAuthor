@@ -18,10 +18,23 @@ attribution" setting actually works.
 > implementation. This fork adds email-based detection (not just names),
 > `core.hooksPath` support, non-destructive install/uninstall, a POSIX shell
 > fallback for machines without Node.js, a user config file, an automated
-> test suite, and cross-platform CI.
+> test suite, and cross-platform CI. Published on npm as
+> [`@aggc/no-coauthor`](https://www.npmjs.com/package/@aggc/no-coauthor); the
+> installed hook and CLI command are still called `no-coauthor`.
+
+## Quick start
+
+```bash
+npx @aggc/no-coauthor install
+```
+
+That's it — every commit in this repo now has AI `Co-Authored-By:` trailers
+stripped automatically, human co-authors untouched. See
+[Install](#install) for the global, curl, and no-Node.js variants.
 
 ## Table of contents
 
+- [Quick start](#quick-start)
 - [Why](#why)
 - [How it decides what to strip](#how-it-decides-what-to-strip)
 - [Covered tools](#covered-tools)
@@ -34,6 +47,7 @@ attribution" setting actually works.
 - [Cross-platform](#cross-platform)
 - [Limitations](#limitations)
 - [Contributing](#contributing)
+- [Releasing](#releasing)
 - [Credits](#credits)
 - [License](#license)
 
@@ -194,22 +208,23 @@ Options
 ## Architecture
 
 ```
-bin/no-coauthor.js   CLI entry point (install / uninstall / --help / --version)
-lib/install.js       Non-destructive install: standalone, wrap, or update-in-place
-lib/uninstall.js     Restores a preserved foreign hook, or removes ours cleanly
-lib/hook.js           Builds the self-contained Node.js commit-msg hook that gets
-                      written to disk (inlines strip.js + patterns.js — no runtime
-                      dependency on this package once installed)
-lib/hook-posix.js     Builds the POSIX /bin/sh commit-msg hook from the same
-                      patterns.js source (JS regex fragments transliterated to
-                      POSIX ERE character classes)
-lib/patterns.js       Single source of truth for bot emails, tool domains, and
-                      AI tool names — both hooks are generated from this file
-lib/strip.js          Core matching/stripping logic (rules A/B/C), shared by
-                      both the Node hook builder and the test suite
-install.sh            Standalone POSIX installer for the curl one-liner; embeds
-                      a copy of the hook-posix.js output (kept in sync and
-                      verified by test/install.test.js)
+bin/no-coauthor.js       CLI entry point (install / uninstall / --help / --version)
+lib/install.js           Non-destructive install: standalone, wrap, or update-in-place
+lib/uninstall.js         Restores a preserved foreign hook, or removes ours cleanly
+lib/hook.js              Builds the self-contained Node.js commit-msg hook that gets
+                         written to disk (inlines strip.js + patterns.js — no
+                         runtime dependency on this package once installed)
+lib/hook-posix.js        Builds the POSIX /bin/sh commit-msg hook from the same
+                         patterns.js source (JS regex fragments transliterated
+                         to POSIX ERE character classes)
+lib/patterns.js          Single source of truth for bot emails, tool domains,
+                         and AI tool names — both hooks are generated from this
+lib/strip.js             Core matching/stripping logic (rules A/B/C), shared by
+                         the Node hook builder and the test suite
+install.sh               Standalone POSIX installer for the curl one-liner;
+                         embeds a copy of the hook-posix.js output
+scripts/sync-install-sh.js  Regenerates that embedded copy after a
+                         lib/patterns.js change (`npm run sync-install-sh`)
 ```
 
 Both hook implementations are generated from `lib/patterns.js`, so a tool
@@ -248,15 +263,31 @@ installs the POSIX hook with real `sh`/`grep`/`awk` and performs an actual
 
 ## Contributing
 
-Bug reports and new tool patterns are welcome. Before opening a PR:
+Bug reports and new tool patterns are welcome.
 
 ```bash
-npm test               # full suite (strip logic, install/uninstall, POSIX hook, sh -n)
+npm test                  # full suite: strip logic, install/uninstall, POSIX hook, sh -n
+npm run sync-install-sh   # regenerate install.sh after touching lib/patterns.js
+npx changeset             # record a changelog entry for your change (patch/minor/major + summary)
 ```
 
-If you add or change a pattern in `lib/patterns.js`, regenerate the embedded
-`install.sh` hook body from `lib/hook-posix.js` and add a `strip.test.js`
-case for both the strip and the preserve side of the new pattern.
+If you add or change a pattern in `lib/patterns.js`:
+
+1. Add a `strip.test.js` case for both the strip and the preserve side.
+2. Run `npm run sync-install-sh` so the curl installer matches — CI fails the
+   build otherwise (`test/install.test.js` checks they're byte-identical).
+3. `test/posix-parity.test.js` automatically checks your new pattern strips
+   correctly under the POSIX hook too; no extra test needed for that part.
+4. `npx changeset` before opening the PR — merging to `main` won't publish
+   anything by itself, but a maintainer merging the resulting "Version
+   Packages" PR will (see [Releasing](#releasing)).
+
+### Releasing
+
+This repo publishes via [Changesets](https://github.com/changesets/changesets):
+every push to `main` with a pending changeset opens/updates a "Version
+Packages" PR; merging that PR bumps the version, updates `CHANGELOG.md`, and
+publishes to npm automatically (`.github/workflows/release.yml`).
 
 ## Credits
 
