@@ -23,7 +23,7 @@
     "access": "public"
   },
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "test": "node --test",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish"

@@ -1,5 +1,5 @@
 ---
-"no-coauthor": minor
+"@aggc/no-coauthor": minor
 ---
 
 Add detection for Codex, Cursor Agent, Devin, Sourcegraph Cody, Augment,

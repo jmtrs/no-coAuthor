@@ -124,7 +124,9 @@ test('end-to-end real git commit strips AI trailer and keeps human', function ()
 })
 
 test('install.sh embedded POSIX hook stays in sync with lib/hook-posix.js', function () {
-  var sh = fs.readFileSync(path.join(__dirname, '..', 'install.sh'), 'utf8')
+  // Normalize CRLF so this test is robust even if a checkout (e.g. Windows
+  // without .gitattributes honored) converts line endings on install.sh.
+  var sh = fs.readFileSync(path.join(__dirname, '..', 'install.sh'), 'utf8').replace(/\r\n/g, '\n')
   var m = sh.match(/<<'__NC_HOOK_EOF__'\n([\s\S]*?)\n__NC_HOOK_EOF__/)
   assert.ok(m, 'HOOK_BODY here-doc not found in install.sh — did the delimiter change?')
   var fromInstall = m[1]
