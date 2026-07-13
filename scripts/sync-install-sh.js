@@ -21,7 +21,14 @@ if (!marker.test(sh)) {
   process.exit(1)
 }
 
-var updated = sh.replace(marker, "<<'__NC_HOOK_EOF__'\n" + body + '\n__NC_HOOK_EOF__')
+// Replacer is a FUNCTION, not a string: a string replacement makes
+// String.prototype.replace interpret "$"-sequences in it as special patterns
+// ($&, $', $`, $1, $$, ...) — body is generated regex source and can
+// legitimately contain e.g. a trailing "...$'" (regex end-anchor followed by
+// a shell quote), which was silently corrupting the embedded heredoc.
+var updated = sh.replace(marker, function () {
+  return "<<'__NC_HOOK_EOF__'\n" + body + '\n__NC_HOOK_EOF__'
+})
 
 if (updated === sh) {
   ui.line('sync-install-sh: install.sh already in sync with lib/hook-posix.js')
