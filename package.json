@@ -1,6 +1,6 @@
 {
   "name": "@aggc/no-coauthor",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Git hook that strips AI co-author trailers (Claude, Copilot, Codex, Cursor, Oz/Warp, GPT, Gemini, Devin, etc.) from commit messages while preserving human co-authors",
   "license": "MIT",
   "author": "0xdsgnrd",
