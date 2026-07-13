@@ -1,5 +1,15 @@
 # @aggc/no-coauthor
 
+## 2.2.0
+
+### Minor Changes
+
+- [#12](https://github.com/jmtrs/no-coAuthor/pull/12) [`9644219`](https://github.com/jmtrs/no-coAuthor/commit/9644219e6a2639e6f2303e3249ad5c00615f4a3b) Thanks [@jmtrs](https://github.com/jmtrs)! - Fix `status` false negative when a repo's `core.hooksPath` dir bundles other hooks.
+
+  The live check pointed a throwaway repo's `core.hooksPath` at the real hooks directory. If that directory also contained a `pre-commit` (e.g. running `pnpm validate:staged` / lint-staged), `pre-push`, or any other hook that fails inside the bare temp repo (no `package.json`, no staged files), git aborted the commit before `commit-msg` ran — and `status` reported `✘ live check FAILED` even though the no-coauthor hook was correctly installed and working. This affected any repo that keeps its own hooks in the same `.githooks` (or custom hooksPath) directory no-coauthor installs into.
+
+  The live check now copies only the `commit-msg` family (`commit-msg` plus its wrapper siblings `commit-msg.orig` / `commit-msg.no-coauthor` when present) into an isolated temp directory and runs there, so sibling hooks no longer interfere. The no-coauthor hook itself is unchanged.
+
 ## 2.1.0
 
 ### Minor Changes
