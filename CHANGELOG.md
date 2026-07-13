@@ -4,11 +4,11 @@
 
 ### Minor Changes
 
-- [#12](https://github.com/jmtrs/no-coAuthor/pull/12) [`9644219`](https://github.com/jmtrs/no-coAuthor/commit/9644219e6a2639e6f2303e3249ad5c00615f4a3b) Thanks [@jmtrs](https://github.com/jmtrs)! - Fix `status` false negative when a repo's `core.hooksPath` dir bundles other hooks.
+- [#12](https://github.com/jmtrs/no-coAuthor/pull/12) [`9644219`](https://github.com/jmtrs/no-coAuthor/commit/9644219e6a2639e6f2303e3249ad5c00615f4a3b) Thanks [@jmtrs](https://github.com/jmtrs)! - Add consistent, color-aware console output across the whole CLI.
 
-  The live check pointed a throwaway repo's `core.hooksPath` at the real hooks directory. If that directory also contained a `pre-commit` (e.g. running `pnpm validate:staged` / lint-staged), `pre-push`, or any other hook that fails inside the bare temp repo (no `package.json`, no staged files), git aborted the commit before `commit-msg` ran — and `status` reported `✘ live check FAILED` even though the no-coauthor hook was correctly installed and working. This affected any repo that keeps its own hooks in the same `.githooks` (or custom hooksPath) directory no-coauthor installs into.
+  `install`, `uninstall`, `status`, and `check`, plus the `--help` text, now share one styled voice (via `picocolors`): a colored `no-coauthor` tag, green/red checkmarks for pass/fail lines, and yellow for actionable warnings. The standalone `install.sh` curl installer and the rare internal-error line in the generated commit-msg hook get the same treatment, using the same color-detection rule everywhere (`NO_COLOR` wins, then `FORCE_COLOR`/`CI` force it on, then falls back to interactive-terminal detection) so a curl-installed run and the npm CLI behave identically. Piped or non-interactive output (scripts, most CI logs) stays plain text.
 
-  The live check now copies only the `commit-msg` family (`commit-msg` plus its wrapper siblings `commit-msg.orig` / `commit-msg.no-coauthor` when present) into an isolated temp directory and runs there, so sibling hooks no longer interfere. The no-coauthor hook itself is unchanged.
+  (Note: this release's changelog previously — and incorrectly — repeated the 2.1.0 entry here due to a stale `.changeset` file resurrected from an abandoned branch; no `status` behavior changed again in 2.2.0 beyond what 2.1.0 already shipped.)
 
 ## 2.1.0
 
