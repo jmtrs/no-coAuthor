@@ -1,7 +1,7 @@
 {
-  "name": "no-coauthor",
+  "name": "@aggc/no-coauthor",
   "version": "1.1.0",
-  "description": "Git hook that strips AI co-author trailers (Claude, Copilot, Cursor, Oz/Warp, GPT, Gemini, etc.) from commit messages while preserving human co-authors",
+  "description": "Git hook that strips AI co-author trailers (Claude, Copilot, Codex, Cursor, Oz/Warp, GPT, Gemini, Devin, etc.) from commit messages while preserving human co-authors",
   "license": "MIT",
   "author": "0xdsgnrd",
   "contributors": [
@@ -9,18 +9,24 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/jmtrs/no-coAuthor.git"
+    "url": "git+https://github.com/jmtrs/no-coAuthor.git"
   },
   "bin": {
-    "no-coauthor": "./bin/no-coauthor.js"
+    "no-coauthor": "bin/no-coauthor.js"
   },
   "files": [
     "bin/",
     "lib/",
     "install.sh"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
   "engines": {
     "node": ">=18"
@@ -28,13 +34,23 @@
   "keywords": [
     "git",
     "hooks",
+    "commit-msg",
     "commit",
     "co-author",
+    "co-authored-by",
     "ai",
     "claude",
+    "claude-code",
     "copilot",
+    "codex",
     "gpt",
+    "chatgpt",
     "gemini",
-    "cursor"
-  ]
+    "cursor",
+    "devin"
+  ],
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.0"
+  }
 }

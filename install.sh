@@ -4,35 +4,39 @@
 #
 # Installs the POSIX commit-msg hook. For the superior Node.js hook with
 # .no-coauthorrc.json support, use instead:
-#     npx no-coauthor install
+#     npx @aggc/no-coauthor install
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/jmtrs/no-coAuthor/main/install.sh | sh
 #   sh install.sh [--global]
 #
 # The hook body below is generated from lib/hook-posix.js. Regenerate it when
-# lib/patterns.js changes.
+# lib/patterns.js changes (test/install.test.js asserts they stay in sync).
 
 set -u
 
 MANAGED='no-coauthor-managed'
 
 # --- POSIX hook body (keep in sync with lib/hook-posix.js) ---
-HOOK_BODY='#!/bin/sh
+# Embedded with a quoted here-doc so the body is verbatim (no shell
+# expansion, no fragile nested-quote escaping).
+HOOK_BODY=$(cat <<'__NC_HOOK_EOF__'
+#!/bin/sh
 # no-coauthor-managed (do not remove; used by uninstall)
 # no-coauthor — strips AI co-author trailers (POSIX fallback).
 # Node.js hook is preferred; this is best-effort when Node is unavailable.
 FILE="$1"
 [ -z "$FILE" ] && exit 0
 [ ! -f "$FILE" ] && exit 0
-PAT='"'"'^[[:space:]]*Co-Authored-By:.*(<[^>]*(copilot@github\.com|[[[:alnum:]_].+-]*copilot[[[:alnum:]_].+-]*@users\.noreply\.github\.com|noreply@anthropic\.com|noreply@openai\.com|@chatgpt\.com|gemini[[[:alnum:]_].-]*@google\.com|bard[[[:alnum:]_].-]*@google\.com|noreply@cursor\.(com|sh)|noreply@codeium\.com|noreply@tabnine\.com|noreply@windsurf\.com|noreply@aider\.(chat|ai)|noreply@zed\.dev|noreply@cognition\.ai|oz-agent@warp\.dev)[^>]*>|(Claude|Anthropic|Copilot|GitHub Copilot|GPT|ChatGPT|OpenAI|Gemini|Bard|Cursor|Codeium|Windsurf|Tabnine|Amazon Q|CodeWhisperer|Aider|Zed|Cody|Devin|Cline|Continue|Llama|Oz).*(noreply|users\.noreply\.github\.com|\[bot\])|(Claude|Anthropic|Copilot|GitHub Copilot|GPT|ChatGPT|OpenAI|Gemini|Bard|Cursor|Codeium|Windsurf|Tabnine|Amazon Q|CodeWhisperer|Aider|Zed|Cody|Devin|Cline|Continue|Llama|Oz).*(<[^>]*(anthropic\.com|warp\.dev|openai\.com|chatgpt\.com|cursor\.(com|sh)|codeium\.com|tabnine\.com|windsurf\.com|aider\.(chat|ai)|zed\.dev|cognition\.ai)|anthropic\.com|warp\.dev|openai\.com|chatgpt\.com|cursor\.(com|sh)|codeium\.com|tabnine\.com|windsurf\.com|aider\.(chat|ai)|zed\.dev|cognition\.ai))'"'"'
+PAT='^[[:space:]]*Co-Authored-By:.*(<[^>]*(copilot@github\.com|[^[:space:]@]*copilot[^[:space:]@]*@users\.noreply\.github\.com|noreply@anthropic\.com|noreply@openai\.com|codex@openai\.com|@chatgpt\.com|gemini[[:alnum:]_.-]*@google\.com|bard[[:alnum:]_.-]*@google\.com|noreply@cursor\.(com|sh)|cursoragent@cursor\.com|noreply@codeium\.com|noreply@tabnine\.com|noreply@windsurf\.com|noreply@aider\.(chat|ai)|noreply@zed\.dev|noreply@cognition\.ai|devin@cognition\.dev|noreply@sourcegraph\.com|noreply@augmentcode\.com|noreply@replit\.com|oz-agent@warp\.dev)[^>]*>|(Claude|Claude Code|Anthropic|Copilot|GitHub Copilot|Codex|GPT|ChatGPT|OpenAI|Gemini|Bard|Cursor|Codeium|Windsurf|Tabnine|Amazon Q|amazon-q|amazonq|CodeWhisperer|codewhisperer|Aider|Zed|Cody|Devin|Cline|Continue|Llama|Augment|Replit|Tabby|Bolt|v0|Lovable|Goose|OpenHands|Plandex|Qoder|Jules|Oz).*(noreply|users\.noreply\.github\.com|\[bot\])|(Claude|Claude Code|Anthropic|Copilot|GitHub Copilot|Codex|GPT|ChatGPT|OpenAI|Gemini|Bard|Cursor|Codeium|Windsurf|Tabnine|Amazon Q|amazon-q|amazonq|CodeWhisperer|codewhisperer|Aider|Zed|Cody|Devin|Cline|Continue|Llama|Augment|Replit|Tabby|Bolt|v0|Lovable|Goose|OpenHands|Plandex|Qoder|Jules|Oz).*(<[^>]*(anthropic\.com|warp\.dev|openai\.com|chatgpt\.com|cursor\.(com|sh)|codeium\.com|tabnine\.com|windsurf\.com|aider\.(chat|ai)|zed\.dev|cognition\.(ai|dev)|sourcegraph\.com|augmentcode\.com|replit\.com)|anthropic\.com|warp\.dev|openai\.com|chatgpt\.com|cursor\.(com|sh)|codeium\.com|tabnine\.com|windsurf\.com|aider\.(chat|ai)|zed\.dev|cognition\.(ai|dev)|sourcegraph\.com|augmentcode\.com|replit\.com))'
 TMP="${FILE}.nc.tmp"
-grep -v -E "$PAT" "$FILE" 2>/dev/null | \
-  awk '"'"'BEGIN{b=0} /^[[:space:]]*$/{b++; if(b==1)print; next}{b=0;print}'"'"' | \
-  awk '"'"'{lines[NR]=$0} END{while(NR>0 && lines[NR]~/^[[:space:]]*$/)NR--; for(i=1;i<=NR;i++)print lines[i]}'"'"' > "$TMP"
+grep -v -E -i "$PAT" "$FILE" 2>/dev/null | \
+  awk 'BEGIN{b=0} /^[[:space:]]*$/{b++; if(b==1)print; next}{b=0;print}' | \
+  awk '{lines[NR]=$0} END{while(NR>0 && lines[NR]~/^[[:space:]]*$/)NR--; for(i=1;i<=NR;i++)print lines[i]}' > "$TMP"
 if [ -s "$TMP" ]; then mv "$TMP" "$FILE"; else printf "" > "$FILE"; rm -f "$TMP"; fi
 exit 0
-'
+__NC_HOOK_EOF__
+)
 
 WRAPPER='#!/bin/sh
 # no-coauthor-managed (wrapper installed by no-coauthor)
@@ -83,7 +87,7 @@ install_at() {
     return
   fi
 
-  # Foreign hook → preserve and wrap.
+  # Foreign hook -> preserve and wrap.
   if [ ! -f "$orig" ]; then
     mv "$hook" "$orig"
     chmod +x "$orig"

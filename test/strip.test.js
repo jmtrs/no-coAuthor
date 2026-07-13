@@ -119,3 +119,73 @@ test('case-insensitive matching', function () {
   var r = stripCount('fix: x\n\nco-authored-by: claude <noreply@anthropic.com>\n')
   assert.equal(r.removed, 1)
 })
+
+test('strips OpenAI Codex default trailer (noreply@openai.com)', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Codex <noreply@openai.com>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('strips Codex with model-suffixed name', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Codex CLI (gpt-5-codex) <noreply@openai.com>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('strips Codex GitHub noreply form', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Codex <267193182+codex@users.noreply.github.com>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('strips Cursor cloud agent (cursoragent@cursor.com)', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Cursor Agent <cursoragent@cursor.com>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('strips Gemini Code Assist (gemini-code-assist@google.com)', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Gemini <gemini-code-assist@google.com>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('strips gemini-code-assist[bot] GitHub form', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: gemini-code-assist[bot] <176961590+gemini-code-assist[bot]@users.noreply.github.com>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('strips Copilot[bot] GitHub noreply form', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: GitHub Copilot <198982749+Copilot[bot]@users.noreply.github.com>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('strips amazon-q[bot] GitHub form', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: amazon-q[bot] <123+amazon-q[bot]@users.noreply.github.com>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('strips Devin (devin@cognition.dev)', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Devin <devin@cognition.dev>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('strips Sourcegraph Cody', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Cody <noreply@sourcegraph.com>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('strips Claude with model-suffixed name (Claude Opus 4.6)', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n')
+  assert.equal(r.removed, 1)
+})
+
+test('preserves a human named Devin with a normal email', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Devin Jones <devin@gmail.com>\n')
+  assert.equal(r.removed, 0)
+})
+
+test('preserves a human named Cody with a normal email', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Cody Smith <cody@gmail.com>\n')
+  assert.equal(r.removed, 0)
+})
+
+test('preserves a Googler with a non-bot @google.com email', function () {
+  var r = stripCount('fix: x\n\nCo-Authored-By: Pat <pat@google.com>\n')
+  assert.equal(r.removed, 0)
+})

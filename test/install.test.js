@@ -122,3 +122,70 @@ test('end-to-end real git commit strips AI trailer and keeps human', function ()
     uninstall(false)
   })
 })
+
+test('install.sh embedded POSIX hook stays in sync with lib/hook-posix.js', function () {
+  var sh = fs.readFileSync(path.join(__dirname, '..', 'install.sh'), 'utf8')
+  var m = sh.match(/<<'__NC_HOOK_EOF__'\n([\s\S]*?)\n__NC_HOOK_EOF__/)
+  assert.ok(m, 'HOOK_BODY here-doc not found in install.sh — did the delimiter change?')
+  var fromInstall = m[1]
+  var fromLib = require('../lib/hook-posix').replace(/\n+$/, '')
+  assert.equal(
+    fromInstall,
+    fromLib,
+    'install.sh HOOK_BODY is stale. Regenerate with: node ' +
+      '`node -e "require(\'./lib/hook-posix\')` or the generator after changing lib/patterns.js.'
+  )
+})
+
+test('install.sh is syntactically valid POSIX sh (sh -n)', function () {
+  if (process.platform === 'win32') return // sh -n not available on Windows runners without Git Bash
+  execFileSync('sh', ['-n', path.join(__dirname, '..', 'install.sh')], {
+    encoding: 'utf8'
+  })
+})
+
+;(process.platform === 'win32' ? test.skip : test)(
+  'POSIX hook strips Oz/Codex/Cursor and keeps a human (real sh, grep, awk)',
+  function () {
+    var posixHook = require('../lib/hook-posix')
+    var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-posix-'))
+    try {
+      var hookFile = path.join(dir, 'commit-msg')
+      var msgFile = path.join(dir, 'COMMIT_EDITMSG')
+      fs.writeFileSync(hookFile, posixHook, { mode: 0o755 })
+      fs.chmodSync(hookFile, 0o755)
+      fs.writeFileSync(
+        msgFile,
+        'feat: p\n\n' +
+          'Co-Authored-By: Oz <oz-agent@warp.dev>\n' +
+          'Co-Authored-By: Codex <noreply@openai.com>\n' +
+          'Co-Authored-By: Cursor Agent <cursoragent@cursor.com>\n' +
+          'Co-Authored-By: GitHub Copilot <223556219+Copilot@users.noreply.github.com>\n' +
+          // Regression: `[\w.-]*` inside lib/patterns.js used to be mistranslated
+          // to nested POSIX brackets that never matched (toPosixEre bug).
+          'Co-Authored-By: Gemini <gemini-code-assist@google.com>\n' +
+          'Co-Authored-By: Bard <bard-agent@google.com>\n' +
+          // Regression: grep ran without -i, so a lowercase bot display name
+          // (as GitHub renders many [bot] accounts) silently escaped rule B.
+          'Co-Authored-By: gemini-code-assist[bot] <176961590+gemini-code-assist[bot]@users.noreply.github.com>\n' +
+          'Co-Authored-By: Jane Doe <jane@example.com>\n' +
+          'Signed-off-by: Real <real@example.com>\n'
+      )
+      execFileSync('sh', [hookFile, msgFile], { cwd: dir })
+      var out = fs.readFileSync(msgFile, 'utf8')
+      assert.doesNotMatch(out, /oz-agent@warp\.dev/)
+      assert.doesNotMatch(out, /noreply@openai\.com/)
+      assert.doesNotMatch(out, /cursoragent@cursor\.com/)
+      assert.doesNotMatch(out, /223556219\+Copilot@users\.noreply/)
+      assert.doesNotMatch(out, /gemini-code-assist@google\.com/)
+      assert.doesNotMatch(out, /bard-agent@google\.com/)
+      assert.doesNotMatch(out, /gemini-code-assist\[bot\]@users\.noreply/)
+      assert.match(out, /Jane Doe <jane@example\.com>/)
+      assert.match(out, /Signed-off-by: Real/)
+    } finally {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true })
+      } catch (e) {}
+    }
+  }
+)
