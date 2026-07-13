@@ -1,0 +1,6 @@
+- id: no-coauthor
+  name: no-coauthor
+  description: Strip AI co-author trailers and generated-by banners from the commit message
+  entry: no-coauthor commit-msg
+  language: node
+  stages: [commit-msg]
