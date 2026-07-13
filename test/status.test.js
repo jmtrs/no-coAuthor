@@ -90,7 +90,10 @@ test('status: fails when something else overwrote the hook after install (e.g. h
   assert.match(r.out, /was NOT installed by no-coauthor/)
 })
 
-test('status: fails when the hook file is not executable', function () {
+// Windows has no POSIX execute-permission bit (chmod's X bits are close to
+// a no-op there and fs.constants.X_OK degrades to an existence check per
+// Node's docs), so this scenario can't be reproduced on it.
+;(process.platform === 'win32' ? test.skip : test)('status: fails when the hook file is not executable', function () {
   var dir = mkRepo()
   withCwd(dir, function () {
     install(false, false)
