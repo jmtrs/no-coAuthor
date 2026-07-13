@@ -90,6 +90,29 @@ test('status: passes when a foreign hook was preserved and wrapped', function ()
   })
 })
 
+// Regression: a repo whose hooksPath dir bundles OTHER hooks (a `pre-commit`
+// running pnpm/lint-staged, etc.) must not make the no-coauthor live check
+// fail. Before isolation, the temp repo pointed at the real hooksDir, the
+// sibling pre-commit ran first (no package.json in the temp dir → non-zero
+// exit) and aborted the commit before commit-msg ever ran — a false negative
+// reported as "live check FAILED". The live check must isolate commit-msg.
+test('status: live check still passes when sibling hooks (pre-commit) fail in the temp repo', function () {
+  var dir = mkRepo()
+  withCwd(dir, function () {
+    install(false, false)
+  })
+  var hooks = path.join(dir, '.git', 'hooks')
+  // A sibling hook that always fails — mirrors a pre-commit calling
+  // `pnpm validate:staged` in a bare temp dir with no package.json.
+  fs.writeFileSync(path.join(hooks, 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 })
+  var r = runStatusCli(dir)
+  assert.equal(r.code, 0)
+  assert.match(r.out, /live check: a synthetic AI trailer was stripped/)
+  withCwd(dir, function () {
+    uninstall(false)
+  })
+})
+
 test('status: fails when something else overwrote the hook after install (e.g. husky)', function () {
   var dir = mkRepo()
   withCwd(dir, function () {
