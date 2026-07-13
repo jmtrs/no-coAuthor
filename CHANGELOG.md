@@ -1,5 +1,18 @@
 # @aggc/no-coauthor
 
+## 2.5.0
+
+### Minor Changes
+
+- [#21](https://github.com/jmtrs/no-coAuthor/pull/21) [`309fe1e`](https://github.com/jmtrs/no-coAuthor/commit/309fe1e3a7e4fc418334f5dcfe1f9a6703dc3c3d) Thanks [@jmtrs](https://github.com/jmtrs)! - Add a Homebrew tap ([jmtrs/homebrew-tap](https://github.com/jmtrs/homebrew-tap)) for installing without Node.js:
+
+  ```bash
+  brew install jmtrs/tap/no-coauthor
+  no-coauthor install
+  ```
+
+  The formula packages the existing `install.sh` POSIX hook byte-identical, just installed under the `no-coauthor` command name (no behavior changes). `.github/workflows/release.yml` now updates the formula's `url`/`sha256` automatically after every publish.
+
 ## 2.4.0
 
 ### Minor Changes
