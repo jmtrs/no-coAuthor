@@ -71,6 +71,12 @@ test('generated hook reads .no-coauthorrc.json from cwd for custom patterns', fu
   }
 })
 
+test('NO_COAUTHOR_DISABLE=1 skips stripping for that invocation', function () {
+  var msg = 'fix: x\n\nCo-Authored-By: Oz <oz-agent@warp.dev>\nCo-Authored-By: Jane Doe <jane@example.com>\n'
+  var out = runHook(msg, { NO_COAUTHOR_DISABLE: '1' })
+  assert.equal(out, msg, 'the message should be left completely untouched when disabled')
+})
+
 test('generated hook does not crash when message file is missing', function () {
   var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-missing-'))
   try {

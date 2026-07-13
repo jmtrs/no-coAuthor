@@ -38,6 +38,10 @@ if (args.includes('--help') || args.includes('-h') || args.length === 0) {
   print('  Config')
   print('    .no-coauthorrc.json in repo root or ~ can add {"names":[],"emails":[],"domains":[]}')
   print('')
+  print('  Temporarily disabling')
+  print('    NO_COAUTHOR_DISABLE=1 git commit ...   skip just this hook (wrapped hooks still run)')
+  print('    git commit --no-verify ...             skip every hook, including wrapped ones')
+  print('')
   process.exit(0)
 }
 

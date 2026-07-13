@@ -42,6 +42,7 @@ stripped automatically, human co-authors untouched. See
 - [Uninstall](#uninstall)
 - [How install works (non-destructive)](#how-install-works-non-destructive)
 - [Configuration](#configuration)
+- [Temporarily disabling](#temporarily-disabling)
 - [CLI reference](#cli-reference)
 - [Architecture](#architecture)
 - [Cross-platform](#cross-platform)
@@ -189,6 +190,26 @@ automatically, so no regex knowledge is required:
 The Node.js hook reads this at runtime (both repo-root and home-directory
 files, merged). The POSIX fallback does not — it is fully self-contained by
 design, with no filesystem reads beyond the commit message itself.
+
+## Temporarily disabling
+
+Two ways to skip stripping, for different scopes:
+
+```bash
+# Skip every hook for one commit (git's own escape hatch) — also skips any
+# OTHER hook this may be wrapping (see [How install works](#how-install-works-non-destructive)).
+git commit --no-verify -m "..."
+
+# Skip only no-coauthor for one commit — any wrapped hook still runs.
+NO_COAUTHOR_DISABLE=1 git commit -m "..."
+
+# Skip only no-coauthor for a whole shell session.
+export NO_COAUTHOR_DISABLE=1
+```
+
+`NO_COAUTHOR_DISABLE` is checked first thing in both the Node and POSIX
+hooks, before any matching happens. Prefer it over `--no-verify` whenever a
+foreign hook is wrapped and you still want that one to run.
 
 ## CLI reference
 

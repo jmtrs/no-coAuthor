@@ -261,3 +261,25 @@ test('install.sh is syntactically valid POSIX sh (sh -n)', function () {
     }
   }
 )
+
+;(process.platform === 'win32' ? test.skip : test)(
+  'POSIX hook: NO_COAUTHOR_DISABLE=1 skips stripping for that invocation (real sh)',
+  function () {
+    var posixHook = require('../lib/hook-posix')
+    var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-posix-toggle-'))
+    try {
+      var hookFile = path.join(dir, 'commit-msg')
+      var msgFile = path.join(dir, 'COMMIT_EDITMSG')
+      fs.writeFileSync(hookFile, posixHook, { mode: 0o755 })
+      var msg = 'fix: x\n\nCo-Authored-By: Oz <oz-agent@warp.dev>\nCo-Authored-By: Jane Doe <jane@example.com>\n'
+      fs.writeFileSync(msgFile, msg)
+      execFileSync('sh', [hookFile, msgFile], { cwd: dir, env: Object.assign({}, process.env, { NO_COAUTHOR_DISABLE: '1' }) })
+      var out = fs.readFileSync(msgFile, 'utf8')
+      assert.equal(out, msg, 'the message should be left completely untouched when disabled')
+    } finally {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true })
+      } catch (e) {}
+    }
+  }
+)

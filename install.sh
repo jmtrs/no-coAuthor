@@ -28,6 +28,10 @@ HOOK_BODY=$(cat <<'__NC_HOOK_EOF__'
 FILE="$1"
 [ -z "$FILE" ] && exit 0
 [ ! -f "$FILE" ] && exit 0
+# NO_COAUTHOR_DISABLE=1 disables just this hook for one commit/session,
+# unlike --no-verify which skips every hook (including any preserved
+# foreign one this may be wrapping).
+[ -n "${NO_COAUTHOR_DISABLE:-}" ] && exit 0
 PAT='^[[:space:]]*Co-Authored-By:.*(<[^>]*(copilot@github\.com|[^[:space:]@]*copilot[^[:space:]@]*@users\.noreply\.github\.com|noreply@anthropic\.com|noreply@openai\.com|codex@openai\.com|@chatgpt\.com|gemini[[:alnum:]_.-]*@google\.com|bard[[:alnum:]_.-]*@google\.com|noreply@cursor\.(com|sh)|cursoragent@cursor\.com|noreply@codeium\.com|noreply@tabnine\.com|noreply@windsurf\.com|noreply@aider\.(chat|ai)|noreply@zed\.dev|noreply@cognition\.ai|devin@cognition\.dev|noreply@sourcegraph\.com|noreply@augmentcode\.com|noreply@replit\.com|oz-agent@warp\.dev)[^>]*>|(Claude|Claude Code|Anthropic|Copilot|GitHub Copilot|Codex|GPT|ChatGPT|OpenAI|Gemini|Bard|Cursor|Codeium|Windsurf|Tabnine|Amazon Q|amazon-q|amazonq|CodeWhisperer|codewhisperer|Aider|Zed|Cody|Devin|Cline|Continue|Llama|Augment|Replit|Tabby|Bolt|v0|Lovable|Goose|OpenHands|Plandex|Qoder|Jules|Oz).*(noreply|users\.noreply\.github\.com|\[bot\])|(Claude|Claude Code|Anthropic|Copilot|GitHub Copilot|Codex|GPT|ChatGPT|OpenAI|Gemini|Bard|Cursor|Codeium|Windsurf|Tabnine|Amazon Q|amazon-q|amazonq|CodeWhisperer|codewhisperer|Aider|Zed|Cody|Devin|Cline|Continue|Llama|Augment|Replit|Tabby|Bolt|v0|Lovable|Goose|OpenHands|Plandex|Qoder|Jules|Oz).*(<[^>]*(anthropic\.com|warp\.dev|openai\.com|chatgpt\.com|cursor\.(com|sh)|codeium\.com|tabnine\.com|windsurf\.com|aider\.(chat|ai)|zed\.dev|cognition\.(ai|dev)|sourcegraph\.com|augmentcode\.com|replit\.com)|anthropic\.com|warp\.dev|openai\.com|chatgpt\.com|cursor\.(com|sh)|codeium\.com|tabnine\.com|windsurf\.com|aider\.(chat|ai)|zed\.dev|cognition\.(ai|dev)|sourcegraph\.com|augmentcode\.com|replit\.com))'
 TMP="${FILE}.nc.tmp"
 grep -v -E -i "$PAT" "$FILE" 2>/dev/null | \
