@@ -17,6 +17,29 @@ set -u
 
 MANAGED='no-coauthor-managed'
 
+# --- styling (same voice as the npm CLI's lib/ui.js) ---
+# Mirrors picocolors' own detection rule (see node_modules/picocolors):
+# NO_COLOR wins if set to a non-empty value; otherwise color turns on for
+# FORCE_COLOR, for CI (GitHub Actions and friends export CI=true, and the
+# Node CLI would color its own output there — this keeps curl-installed
+# runs consistent with that), or for an interactive, non-"dumb" terminal.
+if [ -z "${NO_COLOR:-}" ] && {
+  [ -n "${FORCE_COLOR:-}" ] || [ -n "${CI:-}" ] || { [ -t 1 ] && [ "${TERM:-}" != 'dumb' ]; }
+}; then
+  ESC=$(printf '\033')
+  C_BOLD="${ESC}[1m"; C_DIM="${ESC}[2m"; C_RESET="${ESC}[0m"
+  C_CYAN="${ESC}[36m"; C_YELLOW="${ESC}[33m"; C_RED="${ESC}[31m"; C_GREEN="${ESC}[32m"
+else
+  C_BOLD=''; C_DIM=''; C_RESET=''; C_CYAN=''; C_YELLOW=''; C_RED=''; C_GREEN=''
+fi
+TAG="${C_BOLD}${C_CYAN}no-coauthor${C_RESET}"
+WARN_TAG="${C_BOLD}${C_YELLOW}no-coauthor${C_RESET}"
+ERR_TAG="${C_BOLD}${C_RED}no-coauthor${C_RESET}"
+ok() { echo "${C_GREEN}✔${C_RESET} $1"; }
+info() { echo "${TAG}: $1"; }
+warn() { echo "${WARN_TAG}: $1"; }
+err() { echo "${ERR_TAG}: $1" >&2; }
+
 # --- POSIX hook body (keep in sync with lib/hook-posix.js) ---
 # Embedded with a quoted here-doc so the body is verbatim (no shell
 # expansion, no fragile nested-quote escaping).
@@ -89,7 +112,7 @@ install_at() {
 
   if [ ! -f "$hook" ]; then
     write_file "$hook" "$HOOK_BODY"
-    echo "no-coauthor: hook installed at $hook"
+    ok "hook installed at $hook"
     return
   fi
 
@@ -100,7 +123,7 @@ install_at() {
     else
       write_file "$hook" "$HOOK_BODY"
     fi
-    echo "no-coauthor: hook updated at $hook"
+    ok "hook updated at $hook"
     return
   fi
 
@@ -121,7 +144,7 @@ install_at() {
   fi
   write_file "$nc" "$HOOK_BODY"
   write_file "$hook" "$WRAPPER"
-  echo "no-coauthor: hook wrapped at $hook (previous hook preserved at $orig)"
+  ok "hook wrapped at $hook (previous hook preserved at $orig)"
 }
 
 if [ "$IS_GLOBAL" = true ]; then
@@ -131,17 +154,17 @@ if [ "$IS_GLOBAL" = true ]; then
       /*) globalDir="$existing" ;;
       *) globalDir="$HOME/$existing" ;;
     esac
-    echo "no-coauthor: using existing global core.hooksPath: $existing"
+    info "using existing global core.hooksPath: $existing"
   else
     globalDir="$HOME/.git-hooks"
     git config --global core.hooksPath "$globalDir"
   fi
   install_at "$globalDir"
-  echo "no-coauthor: all git repos on this machine will strip AI co-author trailers"
-  echo "no-coauthor: repos with a local core.hooksPath are not affected by the global hook"
+  info "all git repos on this machine will strip AI co-author trailers"
+  info "repos with a local core.hooksPath are not affected by the global hook"
 else
   gitRoot=$(git rev-parse --show-toplevel 2>/dev/null) || {
-    echo "no-coauthor: not inside a git repository" >&2
+    err "not inside a git repository"
     echo "Run inside a git repo for per-project install, or use --global." >&2
     exit 1
   }
@@ -151,18 +174,18 @@ else
       /*) hooksDir="$localHooksPath" ;;
       *) hooksDir="$gitRoot/$localHooksPath" ;;
     esac
-    echo "no-coauthor: using local core.hooksPath: $localHooksPath"
+    info "using local core.hooksPath: $localHooksPath"
   else
     hooksDir="$gitRoot/.git/hooks"
     globalHp=$(git config --global core.hooksPath 2>/dev/null || true)
     if [ -n "$globalHp" ]; then
-      echo "no-coauthor: global core.hooksPath is set to $globalHp; a per-project hook in .git/hooks will NOT run unless you set a local core.hooksPath. Consider --global."
+      warn "global core.hooksPath is set to $globalHp; a per-project hook in .git/hooks will NOT run unless you set a local core.hooksPath. Consider --global."
     fi
   fi
   install_at "$hooksDir"
   # Warn if the hooks dir is inside the working tree (version-controlled).
   case "$hooksDir" in
     "$gitRoot/.git"*) ;;
-    "$gitRoot"*) echo "no-coauthor: hooks dir is inside the working tree; files may show as untracked. Commit them to share, or add to .gitignore for personal use." ;;
+    "$gitRoot"*) warn "hooks dir is inside the working tree; files may show as untracked. Commit them to share, or add to .gitignore for personal use." ;;
   esac
 fi

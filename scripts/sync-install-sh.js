@@ -9,21 +9,23 @@
 var fs = require('fs')
 var path = require('path')
 
+var ui = require('../lib/ui')
+
 var installShPath = path.join(__dirname, '..', 'install.sh')
 var body = require('../lib/hook-posix').replace(/\n+$/, '')
 var sh = fs.readFileSync(installShPath, 'utf8')
 var marker = /<<'__NC_HOOK_EOF__'\n[\s\S]*?\n__NC_HOOK_EOF__/
 
 if (!marker.test(sh)) {
-  console.error('sync-install-sh: HOOK_BODY here-doc not found in install.sh — did the delimiter change?')
+  ui.err('sync-install-sh: HOOK_BODY here-doc not found in install.sh — did the delimiter change?')
   process.exit(1)
 }
 
 var updated = sh.replace(marker, "<<'__NC_HOOK_EOF__'\n" + body + '\n__NC_HOOK_EOF__')
 
 if (updated === sh) {
-  console.log('sync-install-sh: install.sh already in sync with lib/hook-posix.js')
+  ui.line('sync-install-sh: install.sh already in sync with lib/hook-posix.js')
 } else {
   fs.writeFileSync(installShPath, updated)
-  console.log('sync-install-sh: install.sh updated')
+  ui.say(true, 'sync-install-sh: install.sh updated')
 }
