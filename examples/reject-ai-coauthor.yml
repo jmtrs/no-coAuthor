@@ -1,0 +1,56 @@
+# Server-side companion to the no-coauthor commit-msg hook.
+#
+# The hook is client-side and always bypassable — `git commit --no-verify`,
+# NO_COAUTHOR_DISABLE=1, or simply never installing it all skip it. Nothing
+# that runs on the committer's own machine can be made bypass-proof against
+# that same machine. This workflow is the part that can't be talked out of
+# failing locally: it reads the commits that already exist in the pull
+# request, from GitHub's copy of the repo, after the push already happened.
+#
+# IMPORTANT — a failing check here does NOT block the merge by itself. To
+# actually enforce it, add a branch protection rule (or, on newer GitHub
+# plans, a ruleset) on your target branch(es) that requires the
+# "reject-ai-coauthor" job to pass before merging, and disable "allow force
+# pushes" / direct pushes that bypass required checks for anyone without
+# admin override.
+#
+# Copy this file into your own repo's .github/workflows/ (adjust the
+# `npx` version pin if you want to lock it) — it deliberately does not
+# hardcode a base branch, so it works the same regardless of which branch a
+# PR targets or is opened from.
+
+name: reject-ai-coauthor
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  reject-ai-coauthor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check commits for AI co-author trailers
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            # Direct push: github.event.before is all-zeros for a new branch's
+            # first push, which isn't a valid revision — fall back to just the
+            # tip commit in that case.
+            if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+              RANGE="${{ github.event.after }}~1..${{ github.event.after }}"
+            else
+              RANGE="${{ github.event.before }}..${{ github.event.after }}"
+            fi
+          fi
+          npx --yes @aggc/no-coauthor check "$RANGE"

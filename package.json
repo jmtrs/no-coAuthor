@@ -18,6 +18,7 @@
     "bin/",
     "lib/",
     "install.sh",
+    "examples/",
     "CHANGELOG.md"
   ],
   "publishConfig": {

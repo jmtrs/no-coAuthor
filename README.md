@@ -43,6 +43,7 @@ stripped automatically, human co-authors untouched. See
 - [How install works (non-destructive)](#how-install-works-non-destructive)
 - [Configuration](#configuration)
 - [Temporarily disabling](#temporarily-disabling)
+- [Server-side enforcement](#server-side-enforcement)
 - [CLI reference](#cli-reference)
 - [Architecture](#architecture)
 - [Cross-platform](#cross-platform)
@@ -211,6 +212,40 @@ export NO_COAUTHOR_DISABLE=1
 hooks, before any matching happens. Prefer it over `--no-verify` whenever a
 foreign hook is wrapped and you still want that one to run.
 
+## Server-side enforcement
+
+**The commit-msg hook is a client-side, opt-in safety net, not a security
+boundary.** Anything running on the committer's own machine — including an
+AI agent with shell access — can skip it: `--no-verify`, `NO_COAUTHOR_DISABLE=1`,
+or just never running `install` in the first place. No local git hook can be
+made bypass-proof against the same machine it runs on; that's true of this
+tool and of every other commit-msg hook (husky, pre-commit, lint-staged, …)
+equally, not a no-coauthor-specific weakness.
+
+If your threat model includes an agent that might *deliberately* re-add
+attribution rather than just doing it by unreliable default, the hook alone
+isn't enough — you need a check that runs somewhere the committer doesn't
+control: **CI, as a required PR status check.**
+
+```bash
+npx @aggc/no-coauthor check <range>   # exit 1 if any commit in <range> has an AI trailer
+npx @aggc/no-coauthor check           # defaults to HEAD~1..HEAD
+```
+
+`check` reuses the exact same detection logic as the hooks (same
+`lib/patterns.js`, same `.no-coauthorrc.json`), so it can never flag
+something the hook wouldn't also have stripped, or vice versa. Copy
+[`examples/reject-ai-coauthor.yml`](examples/reject-ai-coauthor.yml) into
+your repo's `.github/workflows/` — it computes the commit range from the
+PR's base/head SHAs, so it works the same regardless of which branch a PR
+targets or is opened from, not just `main`.
+
+A failing check does **not** block a merge by itself — add a branch
+protection rule (or ruleset) on your target branch(es) requiring that job to
+pass, and restrict who can bypass required checks. That combination — hook
+for the common case, required CI check for the case where someone tries to
+route around it — is what actually can't be defeated from a local shell.
+
 ## CLI reference
 
 ```
@@ -224,6 +259,8 @@ Commands
   uninstall --global  Remove global git hook
   status              Check the hook is installed and actually stripping trailers
   status --global     Check the global hook instead of the local one
+  check [range]       Scan already-made commits for AI trailers (default: HEAD~1..HEAD)
+                      For CI use — see [Server-side enforcement](#server-side-enforcement)
 
 Options
   --no-node           Use POSIX shell hook instead of Node.js
@@ -256,6 +293,8 @@ lib/install.js           Non-destructive install: standalone, wrap, or update-in
 lib/uninstall.js         Restores a preserved foreign hook, or removes ours cleanly
 lib/status.js            Checks the hook is installed, managed, executable, and
                          actually strips a synthetic AI trailer right now
+lib/check.js             Server-side companion: scans a git revision range of
+                         already-made commits for AI trailers (reuses strip.js)
 lib/hook.js              Builds the self-contained Node.js commit-msg hook that gets
                          written to disk (inlines strip.js + patterns.js — no
                          runtime dependency on this package once installed)
@@ -270,6 +309,8 @@ install.sh               Standalone POSIX installer for the curl one-liner;
                          embeds a copy of the hook-posix.js output
 scripts/sync-install-sh.js  Regenerates that embedded copy after a
                          lib/patterns.js change (`npm run sync-install-sh`)
+examples/reject-ai-coauthor.yml  Copy-paste GitHub Actions workflow wired to
+                         `no-coauthor check` — see Server-side enforcement above
 ```
 
 Both hook implementations are generated from `lib/patterns.js`, so a tool

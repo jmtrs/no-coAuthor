@@ -23,6 +23,11 @@ if (args.includes('--help') || args.includes('-h') || args.length === 0) {
   print('    uninstall --global  Remove global git hook')
   print('    status              Check the hook is installed and actually stripping trailers')
   print('    status --global     Check the global hook instead of the local one')
+  print('    check [range]       Scan already-made commits for AI trailers, exit 1 if any found')
+  print('                        (default range: HEAD~1..HEAD). For CI — see')
+  print('                        examples/reject-ai-coauthor.yml. The commit-msg hook is')
+  print('                        client-side and always bypassable; check as a required PR')
+  print('                        status check is the part nothing local can talk out of failing.')
   print('')
   print('  Options')
   print('    --no-node           Use POSIX shell hook instead of Node.js')
@@ -61,6 +66,8 @@ if (command === 'install') {
   require('../lib/uninstall.js')(isGlobal)
 } else if (command === 'status') {
   require('../lib/status.js')(isGlobal)
+} else if (command === 'check') {
+  require('../lib/check.js')(args[1])
 } else {
   process.stderr.write('no-coauthor: unknown command "' + command + '". Run --help for usage.\n')
   process.exit(1)
