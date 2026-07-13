@@ -106,3 +106,28 @@ function runHook(hookScript, runtime, message) {
     })
   }
 )
+
+;(process.platform === 'win32' ? test.skip : test)(
+  'AI_BANNER_LINES entry strips identically under Node and POSIX hooks, human text untouched',
+  function () {
+    patterns.AI_BANNER_LINES.forEach(function (fragment) {
+      var message = 'fix: x\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n' + 'Jane wrote this by hand.\n'
+
+      var nodeOut = runHook(nodeHook, 'node', message)
+      var posixOut = runHook(posixHook, 'sh', message)
+
+      assert.ok(
+        nodeOut.indexOf('Generated with') === -1,
+        'sanity: Node hook did not strip the banner line for pattern "' + fragment + '"'
+      )
+      assert.ok(
+        posixOut.indexOf('Generated with') === -1,
+        'POSIX hook failed to strip the banner line for pattern "' +
+          fragment +
+          '" — toPosixEre likely mistranslated this fragment'
+      )
+      assert.match(nodeOut, /Jane wrote this by hand\./)
+      assert.match(posixOut, /Jane wrote this by hand\./)
+    })
+  }
+)

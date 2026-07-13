@@ -56,19 +56,20 @@ FILE="$1"
 # foreign one this may be wrapping).
 [ -n "${NO_COAUTHOR_DISABLE:-}" ] && exit 0
 PAT='^[[:space:]]*Co-Authored-By:.*(<[^>]*(copilot@github\.com|[^[:space:]@]*copilot[^[:space:]@]*@users\.noreply\.github\.com|noreply@anthropic\.com|noreply@openai\.com|codex@openai\.com|@chatgpt\.com|gemini[[:alnum:]_.-]*@google\.com|bard[[:alnum:]_.-]*@google\.com|noreply@cursor\.(com|sh)|cursoragent@cursor\.com|noreply@codeium\.com|noreply@tabnine\.com|noreply@windsurf\.com|noreply@aider\.(chat|ai)|noreply@zed\.dev|noreply@cognition\.ai|devin@cognition\.dev|noreply@sourcegraph\.com|noreply@augmentcode\.com|noreply@replit\.com|oz-agent@warp\.dev)[^>]*>|(Claude|Claude Code|Anthropic|Copilot|GitHub Copilot|Codex|GPT|ChatGPT|OpenAI|Gemini|Bard|Cursor|Codeium|Windsurf|Tabnine|Amazon Q|amazon-q|amazonq|CodeWhisperer|codewhisperer|Aider|Zed|Cody|Devin|Cline|Continue|Llama|Augment|Replit|Tabby|Bolt|v0|Lovable|Goose|OpenHands|Plandex|Qoder|Jules|Oz).*(noreply|users\.noreply\.github\.com|\[bot\])|(Claude|Claude Code|Anthropic|Copilot|GitHub Copilot|Codex|GPT|ChatGPT|OpenAI|Gemini|Bard|Cursor|Codeium|Windsurf|Tabnine|Amazon Q|amazon-q|amazonq|CodeWhisperer|codewhisperer|Aider|Zed|Cody|Devin|Cline|Continue|Llama|Augment|Replit|Tabby|Bolt|v0|Lovable|Goose|OpenHands|Plandex|Qoder|Jules|Oz).*(<[^>]*(anthropic\.com|warp\.dev|openai\.com|chatgpt\.com|cursor\.(com|sh)|codeium\.com|tabnine\.com|windsurf\.com|aider\.(chat|ai)|zed\.dev|cognition\.(ai|dev)|sourcegraph\.com|augmentcode\.com|replit\.com)|anthropic\.com|warp\.dev|openai\.com|chatgpt\.com|cursor\.(com|sh)|codeium\.com|tabnine\.com|windsurf\.com|aider\.(chat|ai)|zed\.dev|cognition\.(ai|dev)|sourcegraph\.com|augmentcode\.com|replit\.com))'
+BPAT='^[[:space:]]*((🤖[[:space:]]*)?Generated with \[Claude Code\]\(https://claude\.(ai/code|com/claude-code)\))[[:space:]]*$'
 TMP="${FILE}.nc.tmp"
-# Strip only short Co-Authored-By lines. The combined name-alternation ERE
-# is O(n^2) on a long line with no "<", which can hang a `git commit` on a
+# Strip only short Co-Authored-By/banner lines. The combined name-alternation
+# ERE is O(n^2) on a long line with no "<", which can hang a `git commit` on a
 # single adversarial or buggy-tool-generated line (no newlines required, so
 # message-size limits don't help). The length($0) guard short-circuits
 # before the regex ever runs on a long line, mirroring the Node hook's
 # MAX_TRAILER_LINE_LENGTH. Lines over 500 chars are left untouched.
-# PAT is passed via ENVIRON (not -v) so backslash escapes in the ERE survive
-# verbatim; tolower() on both sides gives POSIX-awk case-insensitivity
-# without the gawk-only IGNORECASE.
-PAT_ERE="$PAT" awk '
-BEGIN { PAT = tolower(ENVIRON["PAT_ERE"]) }
-length($0) <= 500 && tolower($0) ~ PAT { next }
+# PAT/BPAT are passed via ENVIRON (not -v) so backslash escapes in the ERE
+# survive verbatim; tolower() on both sides gives POSIX-awk
+# case-insensitivity without the gawk-only IGNORECASE.
+PAT_ERE="$PAT" BANNER_ERE="$BPAT" awk '
+BEGIN { PAT = tolower(ENVIRON["PAT_ERE"]); BPAT = tolower(ENVIRON["BANNER_ERE"]) }
+length($0) <= 500 && (tolower($0) ~ PAT || tolower($0) ~ BPAT) { next }
 { print }
 ' "$FILE" 2>/dev/null | \
   awk 'BEGIN{b=0} /^[[:space:]]*$/{b++; if(b==1)print; next}{b=0;print}' | \
