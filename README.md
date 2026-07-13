@@ -1,145 +1,140 @@
-# no-coAuthor
+# no-coauthor
 
-Git hook that automatically strips AI co-author lines from your commit messages.
+A git hook that strips AI co-author trailers (`Co-Authored-By:`) from commit
+messages — while **preserving human co-authors** and every other trailer
+(`Signed-off-by`, `Refs`, `Closes`, …).
 
-Stop Claude, Copilot, GPT, and other AI tools from showing up as contributors on your GitHub commits.
+It runs inside git, not inside the AI tool, so it catches everything regardless
+of which tool added the trailer or whether that tool's disable setting works.
 
-## Why this exists
+> Fork of [`0xdsgnrd/no-coAuthor`](https://github.com/0xdsgnrd/no-coAuthor) with
+> email-based detection, `core.hooksPath` support, non-destructive install, a
+> config file, tests, and cross-platform CI.
 
-Some AI coding tools add `Co-Authored-By` lines to your commits automatically. A few offer settings to disable it, but those settings are unreliable:
+## Why
 
-| Tool | Adds Co-Authored-By? | Built-in disable? | Reliable? |
-|------|---------------------|-------------------|-----------|
-| **Claude Code** | Yes | `attribution` in settings.json | No -- 10+ open bugs, setting ignored intermittently |
-| **Cursor** | Yes | Settings > Agent > Attribution | No -- IDE updates silently re-enable it |
-| **Copilot Agent** | Yes (agent becomes commit author) | No setting exists | N/A |
-| **Gemini Code Assist** | Yes on PR suggestions | No granular setting | N/A |
+AI coding assistants (Claude Code, Copilot, Cursor, Oz/Warp, Gemini, …) inject
+`Co-Authored-By:` trailers into commits. Some tools offer a setting to disable
+it, but those settings are unreliable: Claude Code's `attribution` setting is
+intermittently ignored, Cursor re-enables it on updates, and Copilot Agent /
+Gemini Code Assist have no setting at all. `no-coauthor` is a git-level safety
+net that works for every tool.
 
-`no-coauthor` is a git-level safety net. It runs inside git itself, not inside the AI tool, so it catches everything regardless of which tool added it or whether settings are configured correctly.
+Use it **together with** your tool's built-in setting when one exists
+(prevention + enforcement). Belt and suspenders.
 
-**Use both together:** Configure your AI tool's built-in setting (prevention) AND install `no-coauthor` (enforcement). Belt and suspenders.
+## How it decides what to strip
 
-### Configure built-in settings (complementary)
+A `Co-Authored-By: Name <email>` line is removed when **any** of these holds
+(case-insensitive):
 
-**Claude Code** -- Add to `~/.claude/settings.json`:
-```json
-{
-  "attribution": {
-    "commit": "",
-    "pr": ""
-  }
-}
+- **A. Bot address** — the `<email>` matches a known bot address
+  (`copilot@github.com`, `noreply@anthropic.com`, `oz-agent@warp.dev`,
+  `…+copilot@users.noreply.github.com`, …). High confidence: no human uses these.
+- **B. Name + bot-shaped email** — the name matches a known AI tool name **and**
+  the email is bot-shaped (`noreply`, `users.noreply.github.com`, `[bot]`).
+- **C. Name + tool domain** — the name matches a known AI tool name **and** the
+  email domain is a known AI-tool domain (`anthropic.com`, `warp.dev`,
+  `cursor.com`, …). Catches non-noreply bot addresses like
+  `Oz <oz-agent@warp.dev>`.
+
+A name match **alone never strips**. This is what keeps a human literally named
+"Claude" with a normal email intact:
+
+```
+Co-Authored-By: Claude <noreply@anthropic.com>   → stripped (A / B)
+Co-Authored-By: Oz <oz-agent@warp.dev>           → stripped (A / C)
+Co-Authored-By: Claude Smith <claude@gmail.com>  → KEPT (human)
+Co-Authored-By: Jane <jane@cursor.com>           → KEPT (same domain, non-AI name)
 ```
 
-**Cursor** -- Go to Settings > Agent > Attribution and disable it. Re-check after updates.
-
-**Copilot Agent / Gemini Code Assist** -- No built-in setting. `no-coauthor` is your only option.
+Covered tools: Claude, Copilot, Cursor, Oz (Warp), GPT/ChatGPT, Gemini/Bard,
+Codeium, Windsurf, Tabnine, Amazon Q, CodeWhisperer, Aider, Zed, Cody, Devin,
+Cline, Continue, Llama. Add your own via [config](#configuration) without
+touching code.
 
 ## Install
 
-### npm (recommended)
+### npm (recommended — Node.js hook with config support)
 
 ```bash
-# Per-project
+# Per-project (inside a git repo)
 npx no-coauthor install
 
-# Global (all repos on your machine)
+# Every repo on your machine
 npx no-coauthor install --global
 ```
 
-### Bun
+### curl (no Node.js required — POSIX shell hook)
 
 ```bash
-bunx no-coauthor install
-bunx no-coauthor install --global
-```
-
-### curl (auto-detects Node.js, falls back to POSIX shell)
-
-```bash
-# Per-project (run inside a git repo)
-curl -fsSL https://raw.githubusercontent.com/0xdsgnrd/no-coauthor/main/install.sh | sh
+# Per-project
+curl -fsSL https://raw.githubusercontent.com/jmtrs/no-coAuthor/main/install.sh | sh
 
 # Global
-curl -fsSL https://raw.githubusercontent.com/0xdsgnrd/no-coauthor/main/install.sh | sh -s -- --global
+curl -fsSL https://raw.githubusercontent.com/jmtrs/no-coAuthor/main/install.sh | sh -s -- --global
 ```
 
-### Manual
+### POSIX shell hook via npm
 
 ```bash
-git clone https://github.com/0xdsgnrd/no-coauthor.git
-cd no-coauthor
-bash install.sh
-```
-
-## What it catches
-
-Strips `Co-Authored-By` lines mentioning any of these AI tools:
-
-- Claude, Anthropic
-- Copilot, GitHub Copilot
-- GPT, ChatGPT, OpenAI
-- Gemini, Bard
-- Cursor
-- Codeium, Windsurf
-- Tabnine
-- Amazon Q, CodeWhisperer
-
-Human co-authors are always kept.
-
-### Before
-
-```
-feat: add user authentication
-
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
-Co-Authored-By: Jane Doe <jane@example.com>
-```
-
-### After
-
-```
-feat: add user authentication
-
-Co-Authored-By: Jane Doe <jane@example.com>
+npx no-coauthor install --no-node
 ```
 
 ## Uninstall
 
 ```bash
-# Per-project
-npx no-coauthor uninstall
-
-# Global
-npx no-coauthor uninstall --global
+npx no-coauthor uninstall          # per-project
+npx no-coauthor uninstall --global # global
 ```
 
-## No Node.js? No problem
+## How install works (non-destructive)
 
-By default, the hook uses Node.js for better regex support. If Node.js isn't available, it automatically falls back to a POSIX shell hook that works on any system with `/bin/sh` and `grep`. Zero dependencies.
+- **No existing `commit-msg` hook** → writes ours (standalone).
+- **Existing foreign hook** → preserves it as `commit-msg.orig` and installs a
+  small shell `commit-msg` wrapper that runs the previous hook **then**
+  no-coauthor. Your existing hook keeps working.
+- **Already installed** → updates in place (idempotent).
+- **`core.hooksPath` aware** — if the repo sets a local `core.hooksPath` (e.g.
+  `.githooks`), the hook is installed **there**, not in `.git/hooks` (which git
+  would ignore). If a global `core.hooksPath` would shadow a per-project
+  install, you get a warning with the fix.
 
-```bash
-# Force the shell version
-npx no-coauthor install --no-node
+Uninstall restores the preserved foreign hook if any, otherwise removes ours.
 
-# Or via curl
-curl -fsSL https://raw.githubusercontent.com/0xdsgnrd/no-coauthor/main/install.sh | sh -s -- --no-node
+## Configuration
+
+Optional `.no-coauthorrc.json` (in the repo root and/or `~`) adds custom
+patterns. Entries are **literal** strings (escaped automatically):
+
+```json
+{
+  "names": ["MyAgent"],
+  "emails": ["bot@myteam.ai"],
+  "domains": ["myteam.ai"]
+}
 ```
 
-## How it works
+The Node.js hook reads this at runtime; the POSIX fallback does not (it is
+self-contained).
 
-The hook runs before each commit is finalized:
+## Cross-platform
 
-1. Reads the commit message file (passed by git as `$1`)
-2. Removes lines matching `Co-Authored-By: <AI tool name>`
-3. Cleans up extra blank lines
-4. Writes the message back
+- **Node.js hook** — the default. Works on Linux, macOS, and Windows
+  (Git for Windows / Git Bash).
+- **POSIX shell hook** — fallback when Node.js is unavailable. Works anywhere
+  with `/bin/sh`, `grep -E`, and `awk`.
 
-It runs in milliseconds and doesn't touch anything else in your commit.
+CI runs the test suite on Ubuntu, macOS, and Windows with Node 18 / 20 / 22.
 
-## Existing hooks
+## Limitations
 
-If you already have a `commit-msg` hook, `no-coauthor` appends to it instead of overwriting. Uninstall cleanly removes only the appended section.
+- The POSIX fallback is best-effort: it uses a combined ERE and does not read
+  the config file. Prefer the Node hook when possible.
+- A human co-author who shares a tool-company domain **and** happens to have an
+  AI tool as their name (e.g. an Anthropic employee named "Claude") would be
+  stripped by rule C. This is an accepted, rare trade-off; use the config to
+  narrow patterns if it matters to you.
 
 ## License
 

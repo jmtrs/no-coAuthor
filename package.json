@@ -1,12 +1,15 @@
 {
   "name": "no-coauthor",
-  "version": "1.0.0",
-  "description": "Git hook that strips AI co-author lines (Claude, Copilot, GPT, Gemini, etc.) from commit messages",
+  "version": "1.1.0",
+  "description": "Git hook that strips AI co-author trailers (Claude, Copilot, Cursor, Oz/Warp, GPT, Gemini, etc.) from commit messages while preserving human co-authors",
   "license": "MIT",
   "author": "0xdsgnrd",
+  "contributors": [
+    "jmtrs"
+  ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/0xdsgnrd/no-coauthor.git"
+    "url": "https://github.com/jmtrs/no-coAuthor.git"
   },
   "bin": {
     "no-coauthor": "./bin/no-coauthor.js"
@@ -16,8 +19,11 @@
     "lib/",
     "install.sh"
   ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "engines": {
-    "node": ">=14"
+    "node": ">=18"
   },
   "keywords": [
     "git",

@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [18, 20, 22]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node --test test/*.test.js
+
+  shell-install:
+    # Verify the standalone POSIX installer works without Node on Unix.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          RT=$(mktemp -d)
+          git init -q "$RT"
+          git -C "$RT" config user.email t@t.t
+          git -C "$RT" config user.name t
+          echo x > "$RT/f.txt"
+          git -C "$RT" add f.txt
+          (cd "$RT" && sh "$GITHUB_WORKSPACE/install.sh")
+          sh -n "$RT/.git/hooks/commit-msg"
+          (cd "$RT" && git commit -q --allow-empty -m "feat: e2e" -m "Co-Authored-By: Oz <oz-agent@warp.dev>" -m "Co-Authored-By: Jane Doe <jane@example.com>")
+          git -C "$RT" log -1 --format=%B | grep -q "jane@example.com"
+          ! git -C "$RT" log -1 --format=%B | grep -q "oz-agent@warp.dev"

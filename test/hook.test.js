@@ -1,0 +1,91 @@
+'use strict'
+
+var test = require('node:test').test
+var assert = require('node:assert/strict')
+var fs = require('fs')
+var os = require('os')
+var path = require('path')
+var execFileSync = require('child_process').execFileSync
+
+var hookScript = require('../lib/hook')
+
+function runHook(message, env) {
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-hook-'))
+  try {
+    var hookFile = path.join(dir, 'commit-msg')
+    var msgFile = path.join(dir, 'COMMIT_EDITMSG')
+    fs.writeFileSync(hookFile, hookScript, { mode: 0o755 })
+    fs.chmodSync(hookFile, 0o755)
+    fs.writeFileSync(msgFile, message)
+    execFileSync('node', [hookFile, msgFile], {
+      env: Object.assign({}, process.env, { HOME: dir, NODE_PATH: '' }, env || {}),
+      cwd: dir
+    })
+    return fs.readFileSync(msgFile, 'utf8')
+  } finally {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true })
+    } catch (e) {}
+  }
+}
+
+test('generated hook strips Oz and keeps Jane', function () {
+  var out = runHook(
+    'feat: a\n\nCo-Authored-By: Oz <oz-agent@warp.dev>\n' +
+      'Co-Authored-By: Jane Doe <jane@example.com>\nSigned-off-by: Real <real@example.com>\n'
+  )
+  assert.doesNotMatch(out, /oz-agent@warp\.dev/)
+  assert.match(out, /Jane Doe/)
+  assert.match(out, /Signed-off-by: Real/)
+})
+
+test('generated hook is a no-op on a clean message', function () {
+  var msg = 'chore: n\n\nBody.\n'
+  var out = runHook(msg)
+  assert.equal(out, msg)
+})
+
+test('generated hook reads .no-coauthorrc.json from cwd for custom patterns', function () {
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-cfg-'))
+  try {
+    fs.writeFileSync(
+      path.join(dir, '.no-coauthorrc.json'),
+      JSON.stringify({ names: ['MyAgent'], domains: ['mycorp.ai'] })
+    )
+    var hookFile = path.join(dir, 'commit-msg')
+    var msgFile = path.join(dir, 'COMMIT_EDITMSG')
+    fs.writeFileSync(hookFile, hookScript, { mode: 0o755 })
+    fs.chmodSync(hookFile, 0o755)
+    fs.writeFileSync(msgFile, 'fix: x\n\nCo-Authored-By: MyAgent <bot@mycorp.ai>\n')
+    execFileSync('node', [hookFile, msgFile], {
+      env: Object.assign({}, process.env, { HOME: os.tmpdir() }),
+      cwd: dir
+    })
+    var out = fs.readFileSync(msgFile, 'utf8')
+    assert.doesNotMatch(out, /MyAgent/)
+    assert.equal(out, 'fix: x\n')
+  } finally {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true })
+    } catch (e) {}
+  }
+})
+
+test('generated hook does not crash when message file is missing', function () {
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-missing-'))
+  try {
+    var hookFile = path.join(dir, 'commit-msg')
+    fs.writeFileSync(hookFile, hookScript, { mode: 0o755 })
+    fs.chmodSync(hookFile, 0o755)
+    // No file path argument → exits 0 without error.
+    execFileSync('node', [hookFile], {
+      env: Object.assign({}, process.env, { HOME: dir }),
+      cwd: dir
+    })
+    assert.ok(true)
+  } finally {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true })
+    } catch (e) {}
+  }
+})
