@@ -7,6 +7,17 @@ var os = require('os')
 var path = require('path')
 var execFileSync = require('child_process').execFileSync
 
+// Isolate this file's git commits from the real machine's global git config.
+// Without this, a REAL active `core.hooksPath` (e.g. from a real
+// `no-coauthor install --global` run on this dev machine) actually strips
+// the AI trailers these tests plant via `commit()` at commit time, before
+// `check` ever gets to look at the history — so these tests would silently
+// verify nothing (a clean commit either way) instead of what they claim to.
+// GIT_CONFIG_GLOBAL is git's own supported override (2.32+) for this.
+var fakeGlobalGitConfig = path.join(os.tmpdir(), 'nc-check-test-empty-gitconfig-' + process.pid)
+fs.writeFileSync(fakeGlobalGitConfig, '')
+process.env.GIT_CONFIG_GLOBAL = fakeGlobalGitConfig
+
 function mkRepo() {
   var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-check-repo-'))
   execFileSync('git', ['init', '-q'], { cwd: dir })

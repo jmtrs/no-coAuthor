@@ -7,6 +7,16 @@ var os = require('os')
 var path = require('path')
 var execFileSync = require('child_process').execFileSync
 
+// Isolate every git config read/write this file's process makes from the
+// real machine's ~/.gitconfig — notably core.hooksPath, which a real
+// `no-coauthor install --global` run on this dev machine sets persistently
+// and would otherwise shadow every local install these tests perform,
+// failing them for reasons that have nothing to do with the code under
+// test. GIT_CONFIG_GLOBAL is git's own supported override (2.32+) for this.
+var fakeGlobalGitConfig = path.join(os.tmpdir(), 'nc-install-test-empty-gitconfig-' + process.pid)
+fs.writeFileSync(fakeGlobalGitConfig, '')
+process.env.GIT_CONFIG_GLOBAL = fakeGlobalGitConfig
+
 var install = require('../lib/install')
 var uninstall = require('../lib/uninstall')
 
@@ -121,6 +131,96 @@ test('end-to-end real git commit strips AI trailer and keeps human', function ()
   withCwd(dir, function () {
     uninstall(false)
   })
+})
+
+// Regression test for a real crash: `.git` in a worktree or submodule is a
+// TEXT FILE ("gitdir: /real/path"), not a directory. The old code assumed
+// `<root>/.git/hooks` is always a valid path to mkdir into, which threw
+// ENOTDIR from both `git worktree add` and `git submodule add` — confirmed
+// by hand before this fix existed. git itself shares hooks across worktrees
+// via the repo's "common dir" (confirmed empirically: a hook placed in the
+// main repo's .git/hooks fires when committing from a linked worktree), so
+// that's also the directory install/uninstall/status must resolve to.
+test('install/uninstall/status work from a worktree, sharing the main repo hooks dir', function () {
+  var dir = mkRepo()
+  execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'chore: base'], { cwd: dir })
+  execFileSync('git', ['branch', 'feature'], { cwd: dir })
+  var wtDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-worktree-'))
+  fs.rmdirSync(wtDir)
+  execFileSync('git', ['worktree', 'add', '-q', wtDir, 'feature'], { cwd: dir })
+
+  try {
+    withCwd(wtDir, function () {
+      install(false, false)
+    })
+
+    // Installed into the MAIN repo's .git/hooks, not (nonexistent as a dir)
+    // <worktree>/.git/hooks.
+    assert.ok(fs.existsSync(path.join(dir, '.git', 'hooks', 'commit-msg')))
+
+    execFileSync(
+      'git',
+      ['commit', '-q', '--allow-empty', '-m', 'feat: from worktree', '-m', 'Co-Authored-By: Claude <noreply@anthropic.com>'],
+      { cwd: wtDir }
+    )
+    var body = execFileSync('git', ['log', '-1', '--format=%B'], { cwd: wtDir, encoding: 'utf8' })
+    assert.doesNotMatch(body, /noreply@anthropic\.com/, 'the shared hook should have stripped this commit made from the worktree')
+
+    var statusOut
+    try {
+      statusOut = execFileSync('node', [path.join(__dirname, '..', 'bin', 'no-coauthor.js'), 'status'], {
+        cwd: wtDir,
+        encoding: 'utf8'
+      })
+    } catch (e) {
+      statusOut = (e.stdout || '') + (e.stderr || '')
+      throw new Error('status failed from a worktree:\n' + statusOut)
+    }
+    assert.match(statusOut, /live check: a synthetic AI trailer was stripped/)
+
+    withCwd(wtDir, function () {
+      uninstall(false)
+    })
+    assert.ok(!fs.existsSync(path.join(dir, '.git', 'hooks', 'commit-msg')))
+  } finally {
+    execFileSync('git', ['worktree', 'remove', '--force', wtDir], { cwd: dir })
+  }
+})
+
+test('install/uninstall work from a submodule, using its own real gitdir under .git/modules', function () {
+  var subDir = mkRepo()
+  execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'chore: sub base'], { cwd: subDir })
+
+  var parentDir = mkRepo()
+  execFileSync('git', ['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', subDir, 'sub'], { cwd: parentDir })
+  execFileSync('git', ['commit', '-q', '-m', 'chore: add submodule'], { cwd: parentDir })
+  var submodulePath = path.join(parentDir, 'sub')
+
+  assert.match(fs.readFileSync(path.join(submodulePath, '.git'), 'utf8'), /^gitdir: /, 'expected .git to be a file, not a directory, inside a submodule')
+
+  withCwd(submodulePath, function () {
+    install(false, false)
+  })
+
+  // The old code would have thrown ENOTDIR trying to mkdir "<submodulePath>/.git/hooks".
+  // gitdir in the .git file is relative to the .git file's OWN location
+  // (submodulePath), not to parentDir.
+  var gitdirRef = fs.readFileSync(path.join(submodulePath, '.git'), 'utf8').replace(/^gitdir:\s*/, '').trim()
+  var realGitDir = path.resolve(submodulePath, gitdirRef)
+  assert.ok(fs.existsSync(path.join(realGitDir, 'hooks', 'commit-msg')))
+
+  execFileSync(
+    'git',
+    ['commit', '-q', '--allow-empty', '-m', 'feat: from submodule', '-m', 'Co-Authored-By: Oz <oz-agent@warp.dev>'],
+    { cwd: submodulePath }
+  )
+  var body = execFileSync('git', ['log', '-1', '--format=%B'], { cwd: submodulePath, encoding: 'utf8' })
+  assert.doesNotMatch(body, /oz-agent@warp\.dev/)
+
+  withCwd(submodulePath, function () {
+    uninstall(false)
+  })
+  assert.ok(!fs.existsSync(path.join(realGitDir, 'hooks', 'commit-msg')))
 })
 
 // The wrap-a-foreign-hook path (lib/install.js installAt's "wrapped" branch)

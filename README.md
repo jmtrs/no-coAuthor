@@ -133,6 +133,14 @@ npx @aggc/no-coauthor install
 npx @aggc/no-coauthor install --global
 ```
 
+`--global` sets git's own `core.hooksPath` globally, so it affects **every
+repo on the machine that doesn't already set its own local
+`core.hooksPath`** — not just repos you plan to use it with. If you have
+older per-project hooks (e.g. a husky v4-style setup that writes straight
+into `.git/hooks` instead of setting `core.hooksPath`), they'll stop running
+silently. Run `npx @aggc/no-coauthor status` in any repo you're unsure about
+to check.
+
 ### curl (no Node.js required — POSIX shell hook)
 
 ```bash
@@ -167,6 +175,12 @@ npx @aggc/no-coauthor uninstall --global # global
   (e.g. `.githooks`), the hook is installed **there**, not in `.git/hooks`
   (which git would otherwise ignore). If a global `core.hooksPath` would
   shadow a per-project install, you get a warning with the fix.
+- **Worktree- and submodule-safe** — `install`/`uninstall`/`status` resolve
+  the hooks directory through `git rev-parse --git-common-dir` rather than
+  assuming `<repo>/.git` is a directory (it's a text file pointing elsewhere
+  in both). Installing from a linked worktree writes to the main repo's
+  shared hooks dir — the same place git itself reads hooks from for every
+  worktree — so one install covers all of them.
 
 Uninstall restores the preserved foreign hook if one exists, otherwise
 removes the no-coauthor hook cleanly.
@@ -289,6 +303,9 @@ no-coauthor: checking local hook at /path/to/repo/.git/hooks
 
 ```
 bin/no-coauthor.js       CLI entry point (install / uninstall / --help / --version)
+lib/git-utils.js         Shared git plumbing (gitConfig, gitRoot, gitCommonDir) used
+                         by install/uninstall/status to resolve the hooks dir —
+                         worktree/submodule-safe (see How install works above)
 lib/install.js           Non-destructive install: standalone, wrap, or update-in-place
 lib/uninstall.js         Restores a preserved foreign hook, or removes ours cleanly
 lib/status.js            Checks the hook is installed, managed, executable, and

@@ -7,6 +7,18 @@ var os = require('os')
 var path = require('path')
 var execFileSync = require('child_process').execFileSync
 
+// Isolate every git config read/write this file's process makes (including
+// the in-process install()/uninstall() calls below, via git-utils.js's
+// execSync) from whatever the real machine's ~/.gitconfig happens to have
+// set — notably core.hooksPath, which a real `no-coauthor install --global`
+// run on this dev machine sets persistently. Without this, these tests only
+// pass by accident of the environment they happen to run in. GIT_CONFIG_GLOBAL
+// is git's own supported override (2.32+) for exactly this purpose. `node
+// --test` runs each file as its own process, so this doesn't leak elsewhere.
+var fakeGlobalGitConfig = path.join(os.tmpdir(), 'nc-status-test-empty-gitconfig-' + process.pid)
+fs.writeFileSync(fakeGlobalGitConfig, '')
+process.env.GIT_CONFIG_GLOBAL = fakeGlobalGitConfig
+
 var install = require('../lib/install')
 var uninstall = require('../lib/uninstall')
 
@@ -118,6 +130,11 @@ test('status: a global core.hooksPath with no local override shadows the local i
   var fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-fakehome-'))
   var globalHooksDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-globalhooks-'))
   var env = Object.assign({}, process.env, { HOME: fakeHome, USERPROFILE: fakeHome })
+  // This test wants its OWN fake global config (resolved via HOME above),
+  // not the file-level GIT_CONFIG_GLOBAL override set at the top of this
+  // file for every other test — that would take precedence over HOME and
+  // point every child process here right back at an empty config.
+  delete env.GIT_CONFIG_GLOBAL
   var bin = path.join(__dirname, '..', 'bin', 'no-coauthor.js')
   try {
     execFileSync('git', ['config', '--global', 'core.hooksPath', globalHooksDir], { cwd: dir, env: env })
@@ -131,7 +148,7 @@ test('status: a global core.hooksPath with no local override shadows the local i
       out = (e.stdout || '') + (e.stderr || '')
     }
     assert.equal(code, 1)
-    assert.match(out, /shadows this local \.git\/hooks install/)
+    assert.match(out, /shadows this local install/)
     assert.doesNotMatch(
       out,
       /[✔✘] live check/,
