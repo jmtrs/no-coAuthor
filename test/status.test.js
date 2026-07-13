@@ -108,3 +108,44 @@ test('status: fails when something else overwrote the hook after install (e.g. h
     uninstall(false)
   })
 })
+
+test('status: a global core.hooksPath with no local override shadows the local install, fails clearly, and skips the (moot) live check', function () {
+  var dir = mkRepo()
+  // A real `git config --global` write/read would touch the actual
+  // developer/CI machine's ~/.gitconfig. Point HOME at a throwaway
+  // directory for these child-process invocations only, so this test never
+  // touches real global git state.
+  var fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-fakehome-'))
+  var globalHooksDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-globalhooks-'))
+  var env = Object.assign({}, process.env, { HOME: fakeHome, USERPROFILE: fakeHome })
+  var bin = path.join(__dirname, '..', 'bin', 'no-coauthor.js')
+  try {
+    execFileSync('git', ['config', '--global', 'core.hooksPath', globalHooksDir], { cwd: dir, env: env })
+    execFileSync('node', [bin, 'install'], { cwd: dir, env: env })
+    var out
+    var code = 0
+    try {
+      out = execFileSync('node', [bin, 'status'], { cwd: dir, encoding: 'utf8', env: env })
+    } catch (e) {
+      code = e.status
+      out = (e.stdout || '') + (e.stderr || '')
+    }
+    assert.equal(code, 1)
+    assert.match(out, /shadows this local \.git\/hooks install/)
+    assert.doesNotMatch(
+      out,
+      /[✔✘] live check/,
+      'the live check should be skipped once shadowing is detected, not run and then contradicted by the shadow warning'
+    )
+  } finally {
+    try {
+      fs.rmSync(fakeHome, { recursive: true, force: true })
+    } catch (e) {}
+    try {
+      fs.rmSync(globalHooksDir, { recursive: true, force: true })
+    } catch (e) {}
+    try {
+      fs.rmSync(dir, { recursive: true, force: true })
+    } catch (e) {}
+  }
+})

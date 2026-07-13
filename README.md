@@ -169,6 +169,9 @@ npx @aggc/no-coauthor uninstall --global # global
 Uninstall restores the preserved foreign hook if one exists, otherwise
 removes the no-coauthor hook cleanly.
 
+Run `npx @aggc/no-coauthor status` any time to confirm the hook is still
+there and actually stripping trailers — see [CLI reference](#cli-reference).
+
 ## Configuration
 
 Optional `.no-coauthorrc.json` (repo root and/or `~`) adds custom patterns on
@@ -268,6 +271,10 @@ installs the POSIX hook with real `sh`/`grep`/`awk` and performs an actual
 
 ## Limitations
 
+- `status`'s live check only exercises the built-in patterns (a synthetic
+  Claude/Anthropic trailer) — it does not know about your
+  `.no-coauthorrc.json` custom patterns, so a working `status` doesn't
+  guarantee a misconfigured custom pattern is actually matching.
 - Lines longer than 500 chars are never treated as a `Co-Authored-By`
   trailer and are left untouched (no real one gets remotely close — this
   bound exists to keep the Node hook's regex matching from doing
