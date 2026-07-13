@@ -96,9 +96,23 @@ collapses any blank line left behind so the trailer block stays valid for
 git's trailer parser.
 
 Separately, a small set of known **AI banner/footer lines** — plain body
-lines some tools insert that aren't trailers at all, like Claude Code's
-`🤖 Generated with [Claude Code](https://claude.com/claude-code)` — are
-stripped the same way. Only exact, confirmed formats are matched (see
+lines some tools insert that aren't trailers at all — are stripped the same
+way. Today this is Claude Code's default commit-body attribution line, which
+covers the confirmed variants across its CLI versions/docs (emoji prefix
+optional, link optional, markdown or plain-parenthetical link):
+
+```
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+Generated with [Claude Code](https://claude.ai/code)
+🤖 Generated with Claude Code
+Generated with Claude Code (https://claude.com/claude-code)
+```
+
+Of the other major tools surveyed (Copilot, Cursor, Codex CLI, Gemini CLI,
+Aider, Devin, Amazon Q Developer, Windsurf), none currently ship a
+standardized commit-body banner like this — they either only use a
+`Co-Authored-By:` trailer (already covered above) or have no attribution
+convention at all. Only exact, confirmed formats are matched (see
 `AI_BANNER_LINES` in `lib/patterns.js`), so a commit message that merely
 *mentions* a tool by name in its own body text is left untouched.
 
@@ -125,7 +139,9 @@ stripped the same way. Only exact, confirmed formats are matched (see
 | Cline, Continue, Llama, Tabby, Bolt, v0, Lovable, Goose, OpenHands, Plandex, Qoder, Jules | name match |
 
 Also stripped as a standalone body line (not a trailer): Claude Code's
-`🤖 Generated with [Claude Code](...)` banner — see `AI_BANNER_LINES` in
+`Generated with Claude Code` attribution banner, in its confirmed variants
+(with/without emoji, with/without a link) — see [How it decides what to
+strip](#how-it-decides-what-to-strip) and `AI_BANNER_LINES` in
 `lib/patterns.js`.
 
 This list is best-effort and evolves as tools change their default trailers.
@@ -397,9 +413,15 @@ installs the POSIX hook with real `sh`/`grep`/`awk` and performs an actual
   emitting a previously-unseen bot address/domain won't be caught until
   patterns.js is updated (or you add it via config).
 - Banner/footer-line stripping is intentionally narrow: only Claude Code's
-  exact known format is built in today. Other tools that insert a similar
-  non-trailer body line aren't covered yet — add yours via `banners` in
-  [config](#configuration) or open a PR against `AI_BANNER_LINES`.
+  confirmed default formats are built in today (a survey of Copilot, Cursor,
+  Codex CLI, Gemini CLI, Aider, Devin, Amazon Q Developer, and Windsurf found
+  no other standardized commit-body banner as of this writing — only
+  `Co-Authored-By:` trailers, already covered above, or no attribution
+  convention at all). Claude Code's own `attribution.commit` setting also
+  lets a user/team override this text to anything, which by definition no
+  fixed pattern can catch — add a custom banner via `banners` in
+  [config](#configuration), or open a PR against `AI_BANNER_LINES` if another
+  tool starts shipping its own standardized one.
 
 ## Contributing
 

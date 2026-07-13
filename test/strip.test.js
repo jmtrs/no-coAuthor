@@ -215,6 +215,16 @@ test('strips legacy Claude Code banner link (claude.ai/code)', function () {
   assert.equal(out, 'feat: x\n')
 })
 
+test('strips Claude Code banner with no link at all', function () {
+  var out = stripMessage('feat: x\n\n🤖 Generated with Claude Code\n')
+  assert.equal(out, 'feat: x\n')
+})
+
+test('strips Claude Code banner with plain parenthetical link (no markdown brackets)', function () {
+  var out = stripMessage('feat: x\n\nGenerated with Claude Code (https://claude.com/claude-code)\n')
+  assert.equal(out, 'feat: x\n')
+})
+
 test('strips banner and trailer together, keeps human co-author', function () {
   var msg =
     'feat: x\n\nBody text.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n' +
@@ -229,6 +239,11 @@ test('strips banner and trailer together, keeps human co-author', function () {
 test('does not strip a human-written line that merely mentions Claude Code', function () {
   var out = stripMessage('feat: x\n\nMigrated our old script to use Claude Code instead of manual review.\n')
   assert.match(out, /Migrated our old script/)
+})
+
+test('does not strip a banner-like line with extra trailing human text (full-line anchor)', function () {
+  var out = stripMessage('feat: x\n\nGenerated with Claude Code, then heavily reviewed and rewritten by me.\n')
+  assert.match(out, /then heavily reviewed/)
 })
 
 test('custom extra banner via opts (literal, escaped)', function () {
