@@ -1,5 +1,16 @@
 # @aggc/no-coauthor
 
+## 1.3.1
+
+### Patch Changes
+
+- [`8df911e`](https://github.com/jmtrs/no-coAuthor/commit/8df911e0d4a5dfafc0d216a491e0cb4006af9862) Thanks [@jmtrs](https://github.com/jmtrs)! - Fix `status` printing a contradictory "✔ live check passed" line right
+  before reporting that a global `core.hooksPath` shadows the local install
+  (making the local hook provably correct yet irrelevant, since git never
+  invokes it). The shadow check now runs first and skips the moot live check
+  instead. Also documents in the README that `status`'s live check only
+  exercises built-in patterns, not custom `.no-coauthorrc.json` entries.
+
 ## 1.3.0
 
 ### Minor Changes
