@@ -17,13 +17,15 @@
   "files": [
     "bin/",
     "lib/",
-    "install.sh"
+    "install.sh",
+    "CHANGELOG.md"
   ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "test": "node --test",
+    "prepublishOnly": "npm test",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish"
