@@ -5,6 +5,15 @@ on:
     branches: [main]
   pull_request:
 
+# Least-privilege default. This workflow only reads code and runs tests, but
+# the repo-wide default was raised to "write" so release.yml (which needs
+# contents:write + pull-requests:write to push the version bump and open the
+# release PR) can run. Without this explicit override, CI — which also runs
+# on `pull_request`, including from forks — would inherit that same write
+# token for no reason, which is an unnecessary supply-chain risk surface.
+permissions:
+  contents: read
+
 jobs:
   test:
     strategy:
