@@ -1,5 +1,15 @@
 # @aggc/no-coauthor
 
+## 1.4.0
+
+### Minor Changes
+
+- [`04e2cc1`](https://github.com/jmtrs/no-coAuthor/commit/04e2cc19e275b68fcb141d3be0f1177c35f6c35f) Thanks [@jmtrs](https://github.com/jmtrs)! - Add `NO_COAUTHOR_DISABLE=1` to disable just this hook for one commit or a
+  whole shell session, without touching a preserved foreign hook — unlike
+  `git commit --no-verify`, which skips every hook including any wrapped one.
+  Supported by both the Node and POSIX hooks, documented in `--help` and the
+  README under a new "Temporarily disabling" section.
+
 ## 1.3.1
 
 ### Patch Changes
