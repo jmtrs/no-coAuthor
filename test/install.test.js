@@ -300,6 +300,40 @@ test('foreign hook wrapper: when the preserved hook allows the commit, no-coauth
   })
 })
 
+// Regression for a real data-loss bug: if a foreign hook was already preserved
+// at commit-msg.orig AND commit-msg is foreign AGAIN (another tool overwrote
+// our wrapper), re-installing used to overwrite the current foreign hook with
+// our wrapper and destroy it — no backup anywhere. Now the older preserved hook
+// rolls to commit-msg.orig.1 and the current foreign hook becomes the live
+// .orig the wrapper runs. Neither foreign hook is lost.
+test('re-install with a stale .orig preserves BOTH foreign hooks (no data loss)', function () {
+  var dir = mkRepo()
+  var hooks = path.join(dir, '.git', 'hooks')
+  var foreignA = '#!/bin/sh\necho FOREIGN_A\n'
+  var foreignB = '#!/bin/sh\necho FOREIGN_B\n'
+  fs.writeFileSync(path.join(hooks, 'commit-msg'), foreignA, { mode: 0o755 })
+  withCwd(dir, function () {
+    install(false, false) // A → .orig, wrapper installed
+  })
+  // Another tool (husky/lefthook/a teammate) overwrites our wrapper with its own hook.
+  fs.writeFileSync(path.join(hooks, 'commit-msg'), foreignB, { mode: 0o755 })
+  withCwd(dir, function () {
+    install(false, false) // must NOT destroy foreignB
+  })
+  // The CURRENT foreign hook (B) is the live one the wrapper runs (.orig); the
+  // older one (A) is preserved at .orig.1. Neither is lost.
+  assert.equal(fs.readFileSync(path.join(hooks, 'commit-msg.orig'), 'utf8'), foreignB, 'current foreign hook B should be the live .orig')
+  assert.equal(fs.readFileSync(path.join(hooks, 'commit-msg.orig.1'), 'utf8'), foreignA, 'older foreign hook A should be preserved at .orig.1')
+  assert.ok(exists(path.join(hooks, 'commit-msg.no-coauthor')))
+  withCwd(dir, function () {
+    uninstall(false)
+  })
+  // Uninstall restores the live foreign hook (B). The dormant backup (A) is
+  // intentionally left in place rather than deleted.
+  assert.equal(fs.readFileSync(path.join(hooks, 'commit-msg'), 'utf8'), foreignB)
+  assert.ok(exists(path.join(hooks, 'commit-msg.orig.1')), 'dormant preserved hook A should not be deleted on uninstall')
+})
+
 test('install.sh embedded POSIX hook stays in sync with lib/hook-posix.js', function () {
   // Normalize CRLF so this test is robust even if a checkout (e.g. Windows
   // without .gitattributes honored) converts line endings on install.sh.
