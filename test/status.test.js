@@ -113,6 +113,34 @@ test('status: live check still passes when sibling hooks (pre-commit) fail in th
   })
 })
 
+// Regression: when a foreign hook was preserved (commit-msg.orig) and would
+// FAIL if run out of its own context, the live check must still PASS — our
+// stripper is fine. Real-world case: husky v9. core.hooksPath points at
+// .husky/_, whose commit-msg is husky's generated wrapper sourcing
+// .husky/_/husky.sh; that file is absent from the self-test's isolated copy,
+// so the wrapper exits non-zero. The wrapper chain runs .orig first
+// (`"$DIR/commit-msg.orig" "$@" || exit $?`), so the commit aborts before the
+// no-coauthor stripper ever runs — surfacing as a false-negative
+// "live check FAILED". The live check must prove the stripper in isolation,
+// not re-run the (context-dependent) foreign hook.
+test('status: live check passes even when the preserved foreign hook (.orig) fails out of context', function () {
+  var dir = mkRepo()
+  var hooks = path.join(dir, '.git', 'hooks')
+  // A foreign hook that always fails — mirrors husky's generated wrapper
+  // sourcing .husky/_/husky.sh in a copy that doesn't ship it.
+  fs.writeFileSync(path.join(hooks, 'commit-msg'), '#!/bin/sh\nexit 1\n', { mode: 0o755 })
+  withCwd(dir, function () {
+    install(false, false)
+  })
+  var r = runStatusCli(dir)
+  assert.equal(r.code, 0)
+  assert.match(r.out, /foreign hook is preserved/)
+  assert.match(r.out, /live check: a synthetic AI trailer was stripped/)
+  withCwd(dir, function () {
+    uninstall(false)
+  })
+})
+
 test('status: fails when something else overwrote the hook after install (e.g. husky)', function () {
   var dir = mkRepo()
   withCwd(dir, function () {
