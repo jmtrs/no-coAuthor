@@ -41,6 +41,7 @@ stripped automatically, human co-authors untouched. See
 - [Install](#install)
 - [Uninstall](#uninstall)
 - [How install works (non-destructive)](#how-install-works-non-destructive)
+- [Coexistence with husky, lefthook, pre-commit](#coexistence-with-husky-lefthook-pre-commit)
 - [Configuration](#configuration)
 - [Temporarily disabling](#temporarily-disabling)
 - [Server-side enforcement](#server-side-enforcement)
@@ -254,6 +255,45 @@ removes the no-coauthor hook cleanly.
 
 Run `npx @aggc/no-coauthor status` any time to confirm the hook is still
 there and actually stripping trailers — see [CLI reference](#cli-reference).
+
+## Coexistence with husky, lefthook, pre-commit
+
+Most real projects run a hook manager. no-coauthor wraps an existing
+`commit-msg` non-destructively (see above), but one manager-specific detail
+matters:
+
+### husky (v9+)
+
+husky sets `core.hooksPath` to `.husky/_` — a directory it **regenerates on
+every `pnpm`/`npm install`** (its `prepare` script). Anything written into
+`.husky/_/commit-msg` is wiped the next time dependencies install, so
+`no-coauthor install` **refuses** to write there rather than report success
+for a hook that won't survive. The durable home is the user-authored file one
+level up, `.husky/commit-msg`, which husky never overwrites. Chain
+no-coauthor from it. Install the global hook once:
+
+```sh
+no-coauthor install --global   # writes ~/.git-hooks/commit-msg
+```
+
+Then append to `.husky/commit-msg`, after your existing `commitlint`/etc.
+line:
+
+```sh
+"$HOME/.git-hooks/commit-msg" "$1"
+```
+
+Now your husky-managed `commit-msg` command runs first, then no-coauthor
+strips on top — and neither gets wiped by a reinstall.
+
+### lefthook / pre-commit framework
+
+These manage `core.hooksPath` (or `.git/hooks`) too, but don't rewrite it
+destructively on install the way husky regenerates `.husky/_`. A normal
+`no-coauthor install` wraps the `commit-msg` they created. If `status` ever
+reports the hook missing right after a reinstall, that's the same class of
+problem — re-run `install`, or use `install --global` so the hook lives
+outside any manager-controlled directory.
 
 ## Configuration
 
