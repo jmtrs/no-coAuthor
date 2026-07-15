@@ -47,6 +47,18 @@ function exists(p) {
   }
 }
 
+// lib/install.js calls process.exit() on refusal, so drive it out-of-process
+// via the CLI (like a user) and inspect the real exit code + output.
+function runInstallCli(dir, args) {
+  var bin = path.join(__dirname, '..', 'bin', 'no-coauthor.js')
+  try {
+    var out = execFileSync('node', [bin, 'install'].concat(args || []), { cwd: dir, encoding: 'utf8' })
+    return { code: 0, out: out }
+  } catch (e) {
+    return { code: e.status, out: (e.stdout || '') + (e.stderr || '') }
+  }
+}
+
 test('standalone install when no commit-msg exists, then uninstall removes it', function () {
   var dir = mkRepo()
   var hooks = path.join(dir, '.git', 'hooks')
@@ -424,3 +436,22 @@ test('install.sh is syntactically valid POSIX sh (sh -n)', function () {
     }
   }
 )
+
+// Regression: husky v9 points core.hooksPath at .husky/_, which husky
+// regenerates on every install/prepare. Writing the wrapper there is silently
+// non-durable — it is wiped the next time someone runs pnpm/npm install.
+// install must detect that volatile dir and REFUSE (explaining why), rather
+// than report success for a hook that will vanish. The user-authored
+// .husky/<hook> files one level up are stable; the message points there.
+test("install: refuses to write into husky's volatile .husky/_ dir, points at .husky/commit-msg instead", function () {
+  var dir = mkRepo()
+  // Simulate husky v9: core.hooksPath points at the generated .husky/_ dir,
+  // which husky rewrites on every install/prepare.
+  execFileSync('git', ['config', '--local', 'core.hooksPath', path.join('.husky', '_')], { cwd: dir })
+  fs.mkdirSync(path.join(dir, '.husky', '_'), { recursive: true })
+  var r = runInstallCli(dir)
+  assert.notEqual(r.code, 0, 'install should refuse rather than silently write a non-durable hook')
+  assert.match(r.out, /husky|volatile|not durable/i, 'should explain the dir is husky-generated and not durable')
+  // Must NOT have written a hook into the volatile dir.
+  assert.ok(!exists(path.join(dir, '.husky', '_', 'commit-msg')), 'must not leave a hook in the volatile .husky/_ dir')
+})
