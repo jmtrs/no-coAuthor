@@ -217,3 +217,51 @@ test('status: a global core.hooksPath with no local override shadows the local i
     } catch (e) {}
   }
 })
+
+// Regression: `status --global` reports the GLOBAL hook is correctly installed
+// (✔ managed), but if the current repo sets its OWN local core.hooksPath, git
+// uses that path instead and the global hook never runs in this repo — yet the
+// old output never said so. A user who runs `status --global` to confirm their
+// setup while inside a husky/lefthook repo (local core.hooksPath = .husky/_)
+// would read "✔ all good" while the global hook is silently inert here. The
+// command must surface the override.
+test('status --global warns when the current repo overrides core.hooksPath (the global hook never runs here)', function () {
+  var dir = mkRepo()
+  var fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-fakehome-'))
+  var globalHooksDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-globalhooks-'))
+  var env = Object.assign({}, process.env, { HOME: fakeHome, USERPROFILE: fakeHome })
+  delete env.GIT_CONFIG_GLOBAL
+  var bin = path.join(__dirname, '..', 'bin', 'no-coauthor.js')
+  try {
+    execFileSync('git', ['config', '--global', 'core.hooksPath', globalHooksDir], { cwd: dir, env: env })
+    execFileSync('node', [bin, 'install', '--global'], { cwd: dir, env: env })
+    // The repo overrides with its own local core.hooksPath (e.g. husky's
+    // .husky/_). git will use this, so the global hook is inert in this repo.
+    execFileSync('git', ['config', '--local', 'core.hooksPath', path.join(dir, '.githooks')], { cwd: dir })
+    var out
+    var code = 0
+    try {
+      out = execFileSync('node', [bin, 'status', '--global'], { cwd: dir, encoding: 'utf8', env: env })
+    } catch (e) {
+      code = e.status
+      out = (e.stdout || '') + (e.stderr || '')
+    }
+    // The global hook IS correctly installed...
+    assert.equal(code, 0)
+    assert.match(out, /managed by no-coauthor/)
+    // ...but the command must warn that this repo overrides core.hooksPath and
+    // the global hook will not run here.
+    assert.match(out, /overrides core\.hooksPath/, 'should warn the repo overrides core.hooksPath')
+    assert.match(out, /won't run here|will not run here/, 'should state the global hook does not run in this repo')
+  } finally {
+    try {
+      fs.rmSync(fakeHome, { recursive: true, force: true })
+    } catch (e) {}
+    try {
+      fs.rmSync(globalHooksDir, { recursive: true, force: true })
+    } catch (e) {}
+    try {
+      fs.rmSync(dir, { recursive: true, force: true })
+    } catch (e) {}
+  }
+})
