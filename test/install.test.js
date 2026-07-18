@@ -424,3 +424,36 @@ test('install.sh is syntactically valid POSIX sh (sh -n)', function () {
     }
   }
 )
+
+// Regression: Node's module-type resolution for the extensionless
+// commit-msg hook walks up to the nearest package.json. A repo declaring
+// "type": "module" (Vite, any ESM-first project) used to make Node load our
+// CommonJS hook body as ESM, crashing with "require is not defined" and
+// blocking every commit. `ensureCommonJsPackageJson` pins the hooks dir's
+// own module type so this can't happen regardless of the real project.
+test('node hook survives a "type": "module" package.json in the target repo', function () {
+  var dir = mkRepo()
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }))
+  var hooks = path.join(dir, '.git', 'hooks')
+
+  withCwd(dir, function () {
+    install(false, false) // local, Node-based hook
+  })
+
+  assert.equal(fs.readFileSync(path.join(hooks, 'package.json'), 'utf8'), install.COMMONJS_PACKAGE_JSON)
+
+  // Real end-to-end: a commit with an AI trailer must not crash the hook
+  // and must still strip the trailer — this is exactly what broke before.
+  execFileSync(
+    'git',
+    ['commit', '-q', '--allow-empty', '-m', 'fix: x', '-m', 'Co-Authored-By: Claude <noreply@anthropic.com>'],
+    { cwd: dir }
+  )
+  var body = execFileSync('git', ['log', '-1', '--format=%B'], { cwd: dir, encoding: 'utf8' })
+  assert.doesNotMatch(body, /noreply@anthropic\.com/)
+
+  withCwd(dir, function () {
+    uninstall(false)
+  })
+  assert.ok(!exists(path.join(hooks, 'package.json')), 'the commonjs guard package.json should be cleaned up on uninstall')
+})
